@@ -16,12 +16,13 @@ import {
 } from "@expo-google-fonts/lora";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { theme } from "../../src/constants/themes";
-import AuthLayout from "../../src/components/common/AuthLayout"; // Import AuthLayout
-import ControlledInput from "../../src/components/common/ControlledInput";
-import CustomButton from "../../src/components/common/CustomButton";
-import { loginSchema } from "../../src/utils/validationSchemas";
+import { theme } from "../../constants/themes";
+import AuthLayout from "../../components/common/AuthLayout";
+import ControlledInput from "../../components/common/ControlledInput";
+import CustomButton from "../../components/common/CustomButton";
+import { loginSchema } from "../../utils/validationSchemas";
 
+// THIS IS IMPORTANT - Make sure this is at the bottom of the file:
 export default function LoginScreen() {
   const [fontsLoaded] = useFonts({ Lora_400Regular, Lora_700Bold });
   const [showPassword, setShowPassword] = useState(false);
@@ -70,7 +71,6 @@ export default function LoginScreen() {
   }
 
   return (
-    // Use AuthLayout wrapper for gradient background
     <AuthLayout>
       <Text style={styles.title}>Bubble</Text>
       <Text style={styles.subtitle}>Welcome back!</Text>
