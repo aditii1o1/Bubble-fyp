@@ -16,11 +16,11 @@ import {
 } from "@expo-google-fonts/lora";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { theme } from "../../src/constants/themes";
-import AuthLayout from "../../src/components/common/AuthLayout";
-import ControlledInput from "../../src/components/common/ControlledInput";
-import CustomButton from "../../src/components/common/CustomButton";
-import { signupSchema } from "../../src/utils/validationSchemas";
+import { theme } from "../../constants/themes";
+import AuthLayout from "../../components/common/AuthLayout";
+import ControlledInput from "../../components/common/ControlledInput";
+import CustomButton from "../../components/common/CustomButton";
+import { signupSchema } from "../../utils/validationSchemas";
 
 export default function SignupScreen() {
   const [fontsLoaded] = useFonts({ Lora_400Regular, Lora_700Bold });
@@ -35,7 +35,7 @@ export default function SignupScreen() {
   const {
     control,
     handleSubmit,
-    formState: { isSubmitting },
+    formState: { errors, isSubmitting },
     setFocus,
   } = useForm({
     resolver: zodResolver(signupSchema),
@@ -45,7 +45,7 @@ export default function SignupScreen() {
       password: "",
       confirmPassword: "",
     },
-    mode: "onChange",
+    mode: "onBlur", // Changed from onChange for better UX
   });
 
   const onSubmit = async (data) => {
@@ -99,8 +99,10 @@ export default function SignupScreen() {
           iconType="material"
           placeholder="Choose a nickname"
           autoCapitalize="none"
-          autoComplete="username"
+          autoComplete="off"
           autoCorrect={false}
+          textContentType="none"
+          importantForAutofill="no"
           returnKeyType="next"
           onSubmitEditing={() => setFocus("email")}
           blurOnSubmit={false}
@@ -116,6 +118,7 @@ export default function SignupScreen() {
           autoCapitalize="none"
           autoComplete="email"
           autoCorrect={false}
+          textContentType="emailAddress"
           returnKeyType="next"
           onSubmitEditing={() => setFocus("password")}
           blurOnSubmit={false}
@@ -133,8 +136,11 @@ export default function SignupScreen() {
           isPasswordVisible={showPassword}
           onTogglePassword={togglePassword}
           autoCapitalize="none"
+          autoComplete="password"
           autoCorrect={false}
           spellCheck={false}
+          textContentType="oneTimeCode"
+          passwordRules="minlength: 6;"
           returnKeyType="next"
           onSubmitEditing={() => setFocus("confirmPassword")}
           blurOnSubmit={false}
@@ -152,8 +158,11 @@ export default function SignupScreen() {
           isPasswordVisible={showConfirmPassword}
           onTogglePassword={toggleConfirmPassword}
           autoCapitalize="none"
+          autoComplete="password"
           autoCorrect={false}
           spellCheck={false}
+          textContentType="oneTimeCode"
+          passwordRules="minlength: 6;"
           returnKeyType="done"
           onSubmitEditing={handleSubmit(onSubmit)}
           ref={confirmPasswordRef}
