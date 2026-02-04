@@ -1,4 +1,4 @@
-// src/components/common/AuthLayout.jsx
+// components/common/AuthLayout.jsx
 import React, { memo } from "react";
 import {
   KeyboardAvoidingView,
@@ -8,7 +8,7 @@ import {
   View,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { theme } from "../../../src/constants/themes";
+import { theme } from "../../constants/themes";
 
 const AuthLayout = memo(({ children, scrollable = false }) => {
   return (
@@ -21,6 +21,7 @@ const AuthLayout = memo(({ children, scrollable = false }) => {
           <ScrollView
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
             <View style={styles.content}>{children}</View>
           </ScrollView>
