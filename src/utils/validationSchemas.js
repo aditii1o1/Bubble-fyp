@@ -1,5 +1,3 @@
-// src/utils/validationSchemas.js
-// ✅ FINAL VERSION - Zod validation schemas
 import { z } from "zod";
 
 // Login Schema
@@ -33,7 +31,11 @@ export const signupSchema = z
     password: z
       .string()
       .min(1, "Password is required")
-      .min(6, "Password must be at least 6 characters"),
+      .min(6, "Password must be at least 6 characters")
+      .regex(
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
+        "Password must contain at least one uppercase letter, one lowercase letter, and one number"
+      ),
     confirmPassword: z.string().min(1, "Please confirm your password"),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -41,12 +43,12 @@ export const signupSchema = z
     path: ["confirmPassword"],
   });
 
-// 🔥 Ready for later features
+// Bubble Creation Schema
 export const bubbleSchema = z.object({
   text: z
     .string()
     .min(1, "Bubble text cannot be empty")
-    .max(500, "Bubble text must be less than 500 characters")
+    .max(1000, "Bubble text must be less than 1000 characters")
     .refine((val) => val.trim().length > 0, {
       message: "Bubble text cannot be empty",
     }),
@@ -60,14 +62,57 @@ export const bubbleSchema = z.object({
           "Tags can only contain letters, numbers, and underscores"
         )
     )
+    .min(1, "Please select at least one tag")
     .max(5, "You can add up to 5 tags only")
-    .optional(),
+    .default([]),
+  image: z
+    .string()
+    .url("Invalid image URL")
+    .optional()
+    .or(z.literal("").optional()),
 });
 
+// Report Schema
 export const reportSchema = z.object({
-  reason: z.string().min(1, "Please select a reason"),
+  reason: z.enum(["spam", "harassment", "inappropriate", "other"], {
+    errorMap: () => ({ message: "Please select a reason" }),
+  }),
   description: z
     .string()
     .max(500, "Description must be less than 500 characters")
     .optional(),
 });
+
+// Comment Schema
+export const commentSchema = z.object({
+  text: z
+    .string()
+    .min(1, "Comment cannot be empty")
+    .max(500, "Comment must be less than 500 characters")
+    .refine((val) => val.trim().length > 0, {
+      message: "Comment cannot be empty",
+    }),
+});
+
+// Profile Schema
+export const profileSchema = z.object({
+  nickname: z
+    .string()
+    .min(3, "Nickname must be at least 3 characters")
+    .max(20, "Nickname must be less than 20 characters")
+    .regex(
+      /^[a-zA-Z0-9_]+$/,
+      "Nickname can only contain letters, numbers, and underscores"
+    ),
+  bio: z.string().max(200, "Bio must be less than 200 characters").optional(),
+});
+
+// Export all schemas
+export default {
+  loginSchema,
+  signupSchema,
+  bubbleSchema,
+  reportSchema,
+  commentSchema,
+  profileSchema,
+};
