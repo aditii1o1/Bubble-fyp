@@ -21,6 +21,7 @@ import AuthLayout from "../../components/common/AuthLayout";
 import ControlledInput from "../../components/common/ControlledInput";
 import CustomButton from "../../components/common/CustomButton";
 import { signupSchema } from "../../utils/validationSchemas";
+import { signup as signupWithBackend } from "../../services/authService";
 
 export default function SignupScreen() {
   const [fontsLoaded] = useFonts({ Lora_400Regular, Lora_700Bold });
@@ -35,7 +36,7 @@ export default function SignupScreen() {
   const {
     control,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { isSubmitting },
     setFocus,
   } = useForm({
     resolver: zodResolver(signupSchema),
@@ -50,14 +51,17 @@ export default function SignupScreen() {
 
   const onSubmit = async (data) => {
     setIsLoading(true);
-    console.log("Signup attempt with:", data.email);
+    try {
+      const response = await signupWithBackend({
+        nickname: data.nickname,
+        email: data.email,
+        password: data.password,
+      });
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
+      const signupName = response?.user?.nickname || data.nickname;
       Alert.alert(
         "Success",
-        `Account created for ${data.nickname}!\nEmail: ${data.email}`,
+        `Account created for ${signupName}!\nEmail: ${data.email}`,
         [
           {
             text: "OK",
@@ -65,7 +69,11 @@ export default function SignupScreen() {
           },
         ]
       );
-    }, 1500);
+    } catch (error) {
+      Alert.alert("Signup Failed", error?.message || "Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const togglePassword = () => {
