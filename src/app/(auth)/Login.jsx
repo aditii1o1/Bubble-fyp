@@ -21,6 +21,7 @@ import AuthLayout from "../../components/common/AuthLayout";
 import ControlledInput from "../../components/common/ControlledInput";
 import CustomButton from "../../components/common/CustomButton";
 import { loginSchema } from "../../utils/validationSchemas";
+import { login as loginWithBackend } from "../../services/authService";
 
 // THIS IS IMPORTANT - Make sure this is at the bottom of the file:
 export default function LoginScreen() {
@@ -45,17 +46,24 @@ export default function LoginScreen() {
 
   const onSubmit = async (data) => {
     setIsLoading(true);
-    console.log("Login attempt with:", data.email);
+    try {
+      const response = await loginWithBackend({
+        email: data.email,
+        password: data.password,
+      });
 
-    setTimeout(() => {
-      setIsLoading(false);
-      Alert.alert("Success", `Logged in as ${data.email}`, [
+      const loggedInEmail = response?.user?.email || data.email;
+      Alert.alert("Success", `Logged in as ${loggedInEmail}`, [
         {
           text: "OK",
           onPress: () => router.replace("/(tabs)/Home"),
         },
       ]);
-    }, 1500);
+    } catch (error) {
+      Alert.alert("Login Failed", error?.message || "Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const togglePassword = () => {
