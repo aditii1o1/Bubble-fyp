@@ -17,6 +17,7 @@ import { useForm, Controller } from "react-hook-form";
 import TagChip from "../components/feed/TagChip";
 import CustomButton from "../components/common/CustomButton";
 import { theme } from "../constants/themes";
+import { createPost } from "../services/postService";
 
 export default function CreateScreen() {
   const router = useRouter();
@@ -70,10 +71,13 @@ export default function CreateScreen() {
 
     setIsSubmitting(true);
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      await createPost({
+        text: formData.text.trim(),
+        tags: selectedTags,
+      });
+
       setIsSubmitting(false);
-      // Reset RHF form and local tag state
       reset();
       setSelectedTags([]);
       Alert.alert("Success!", "Your bubble has been posted anonymously", [
@@ -82,7 +86,10 @@ export default function CreateScreen() {
           onPress: () => router.back(),
         },
       ]);
-    }, 1500);
+    } catch (error) {
+      Alert.alert("Post Failed", error?.message || "Please try again.");
+      setIsSubmitting(false);
+    }
   };
 
   return (
