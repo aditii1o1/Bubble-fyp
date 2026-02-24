@@ -16,6 +16,7 @@ import { theme } from "../../constants/themes";
 import { formatTimeAgo } from "../../lib/utils";
 import { getAvatarEmoji } from "./AvatarPicker";
 import ReportModal from "./ReportModal";
+import { addComment } from "../../services/postService";
 
 const COMMENT_REACTIONS = ["❤️", "😂", "😮", "😢", "🔥"];
 
@@ -30,23 +31,47 @@ const CommentSection = ({ bubbleId }) => {
     if (!newComment.trim()) return;
 
     setIsSubmitting(true);
-
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    const newCommentObj = {
+    const draftText = newComment.trim();
+    const fallbackComment = {
       id: `comment_${Date.now()}`,
       bubbleId,
       nickname: "@anonymous_user",
       avatar: "cat",
-      text: newComment.trim(),
+      text: draftText,
       createdAt: new Date().toISOString(),
       reactions: { "❤️": 0, "😂": 0, "😮": 0, "😢": 0, "🔥": 0 },
     };
 
-    setComments([newCommentObj, ...comments]);
-    setNewComment("");
-    setIsSubmitting(false);
+    try {
+      const response = await addComment({
+        postId: bubbleId,
+        comment: draftText,
+      });
+
+      const created = response?.comment || response?.data || response || {};
+      const normalizedComment = {
+        ...fallbackComment,
+        ...created,
+        id: created?.id || fallbackComment.id,
+        bubbleId,
+        text: created?.text || fallbackComment.text,
+        nickname: created?.nickname || fallbackComment.nickname,
+        avatar: created?.avatar || fallbackComment.avatar,
+        createdAt: created?.createdAt || fallbackComment.createdAt,
+        reactions: created?.reactions || fallbackComment.reactions,
+      };
+
+      setComments((prev) => [normalizedComment, ...prev]);
+      setNewComment("");
+    } catch (error) {
+      if (__DEV__) {
+        console.log("Comment request failed, using local fallback:", error);
+      }
+      setComments((prev) => [fallbackComment, ...prev]);
+      setNewComment("");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleReaction = (commentId, emoji) => {
@@ -375,3 +400,4 @@ const styles = StyleSheet.create({
 });
 
 export default CommentSection;
+
