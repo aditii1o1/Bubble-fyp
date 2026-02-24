@@ -16,7 +16,31 @@ import Header from "../components/common/Header";
 import BubbleCard from "../components/feed/BubbleCard";
 import Skeleton from "../components/feed/Skeleton";
 import FilterModal from "../components/feed/FilterModal";
+import { getFeed } from "../services/postService";
 import { mockBubbles, mockTags } from "../data/mockData";
+
+const normalizeFeedResponse = (payload) => {
+  const list = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.data)
+    ? payload.data
+    : Array.isArray(payload?.posts)
+    ? payload.posts
+    : [];
+
+  return list.map((item, index) => ({
+    ...item,
+    id: item?.id || `post_${index}`,
+    text: item?.text || "",
+    nickname: item?.nickname || "@anonymous",
+    avatar: item?.avatar || "cat",
+    tags: Array.isArray(item?.tags) ? item.tags : [],
+    reactions: item?.reactions || {},
+    expiresAt:
+      item?.expiresAt ||
+      new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+  }));
+};
 
 const HomeScreen = () => {
   const [bubbles, setBubbles] = useState([]);
@@ -27,14 +51,26 @@ const HomeScreen = () => {
   // Filter state - only tags now
   const [selectedTags, setSelectedTags] = useState([]);
 
-  const fetchBubbles = useCallback(async () => {
-    setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+  const fetchBubbles = useCallback(async ({ isRefresh = false } = {}) => {
+    if (!isRefresh) {
+      setIsLoading(true);
+    }
+
+    try {
+      const response = await getFeed();
+      const feed = normalizeFeedResponse(response);
+      setBubbles(feed.length > 0 ? feed : mockBubbles);
+    } catch (error) {
+      if (__DEV__) {
+        console.log("Feed request failed, falling back to mock data:", error);
+      }
       setBubbles(mockBubbles);
+    } finally {
       setIsLoading(false);
-      setRefreshing(false);
-    }, 1000);
+      if (isRefresh) {
+        setRefreshing(false);
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -43,7 +79,7 @@ const HomeScreen = () => {
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchBubbles();
+    fetchBubbles({ isRefresh: true });
   }, [fetchBubbles]);
 
   const handleReact = (bubbleId, emoji) => {
@@ -86,7 +122,7 @@ const HomeScreen = () => {
     }
 
     return bubbles.filter((bubble) =>
-      bubble.tags.some((tag) => selectedTags.includes(tag))
+      (bubble.tags || []).some((tag) => selectedTags.includes(tag))
     );
   }, [bubbles, selectedTags]);
 
