@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import CommentSection from "./CommentSection";
 import { formatTimeRemaining, getPreviewText } from "../../lib/utils";
 import ReportModal from "./ReportModal";
 import RepostModal from "./RepostModal";
+import { reactToPost } from "../../services/postService";
 
 const { width } = Dimensions.get("window");
 
@@ -43,19 +44,44 @@ const BubbleCard = ({ bubble, onReact, onViewProfile }) => {
   const [showReportModal, setShowReportModal] = useState(false);
   const [showRepostModal, setShowRepostModal] = useState(false);
   const [userReactions, setUserReactions] = useState(new Set());
+  const [reactionCounts, setReactionCounts] = useState(bubble.reactions || {});
 
   const timeRemaining = formatTimeRemaining(bubble.expiresAt);
   const isExpiringSoon = timeRemaining?.hours < 3;
 
-  const handleReaction = (emoji) => {
-    const newReactions = new Set(userReactions);
-    if (newReactions.has(emoji)) {
-      newReactions.delete(emoji);
+  useEffect(() => {
+    setReactionCounts(bubble.reactions || {});
+  }, [bubble.reactions]);
+
+  const handleReaction = async (emoji) => {
+    const previousUserReactions = new Set(userReactions);
+    const hasReacted = previousUserReactions.has(emoji);
+    const updatedUserReactions = new Set(previousUserReactions);
+
+    if (hasReacted) {
+      updatedUserReactions.delete(emoji);
     } else {
-      newReactions.add(emoji);
+      updatedUserReactions.add(emoji);
     }
-    setUserReactions(newReactions);
-    onReact?.(bubble.id, emoji);
+
+    setUserReactions(updatedUserReactions);
+    setReactionCounts((prev) => ({
+      ...prev,
+      [emoji]: Math.max(0, (prev[emoji] || 0) + (hasReacted ? -1 : 1)),
+    }));
+
+    try {
+      await reactToPost({ postId: bubble.id, reaction: emoji });
+    } catch (error) {
+      if (__DEV__) {
+        console.log("Reaction request failed, rolling back:", error);
+      }
+      setUserReactions(previousUserReactions);
+      setReactionCounts((prev) => ({
+        ...prev,
+        [emoji]: Math.max(0, (prev[emoji] || 0) + (hasReacted ? 1 : -1)),
+      }));
+    }
   };
 
   const handleRepost = (data) => {
@@ -146,7 +172,7 @@ const BubbleCard = ({ bubble, onReact, onViewProfile }) => {
           {/* Reactions Bar */}
           <View style={styles.reactionContainer}>
             <EmojiReactionBar
-              reactions={bubble.reactions || {}}
+              reactions={reactionCounts}
               userReactions={userReactions}
               onReact={handleReaction}
               onRepost={() => setShowRepostModal(true)}
