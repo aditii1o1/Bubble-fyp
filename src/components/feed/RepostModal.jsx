@@ -10,9 +10,11 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { theme } from "../../constants/themes";
+import { repostPost } from "../../services/moderationService";
 
 export default function RepostModal({ bubble, onClose, onRepost }) {
   const [overlayText, setOverlayText] = useState("");
@@ -20,11 +22,18 @@ export default function RepostModal({ bubble, onClose, onRepost }) {
 
   const handleRepost = async () => {
     setIsReposting(true);
-    // TODO: POST /api/bubbles/{id}/repost
-    await new Promise((r) => setTimeout(r, 500));
-    onRepost && onRepost({ bubbleId: bubble.id, overlayText });
-    setIsReposting(false);
-    onClose();
+    try {
+      await repostPost({
+        postId: bubble.id,
+        overlayText: overlayText.trim(),
+      });
+      onRepost?.({ bubbleId: bubble.id, overlayText: overlayText.trim() });
+      onClose();
+    } catch (error) {
+      Alert.alert("Repost Failed", error?.message || "Please try again.");
+    } finally {
+      setIsReposting(false);
+    }
   };
 
   return (
