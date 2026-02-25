@@ -21,6 +21,15 @@ import TagChip from "../../components/feed/TagChip";
 import ReportModal from "../../components/feed/ReportModal";
 import { getAvatarEmoji } from "../../components/feed/AvatarPicker";
 import { formatTimeAgo, getPreviewText } from "../../lib/utils";
+import { logout } from "../../services/authService";
+import {
+  getMyProfile,
+  getMyPosts,
+  getMyReposts,
+  updateMyAvatar,
+  deleteMyPost,
+  deleteMyRepost,
+} from "../../services/profileService";
 
 // Mock user data - replace with actual user data from Firebase later
 const MOCK_USER = {
@@ -90,6 +99,50 @@ const MOCK_USER_REPOSTS = [
   },
 ];
 
+const unwrapList = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.posts)) return payload.posts;
+  if (Array.isArray(payload?.reposts)) return payload.reposts;
+  return [];
+};
+
+const normalizeProfile = (payload) => {
+  const raw = payload?.data || payload || {};
+  return {
+    ...MOCK_USER,
+    ...raw,
+    nickname: raw?.nickname || MOCK_USER.nickname,
+    avatar: raw?.avatar || MOCK_USER.avatar,
+    joinedDate: raw?.joinedDate || MOCK_USER.joinedDate,
+    email: raw?.email || MOCK_USER.email,
+  };
+};
+
+const normalizePosts = (list) =>
+  list.map((post, index) => ({
+    ...post,
+    id: post?.id || `post_${index}`,
+    nickname: post?.nickname || MOCK_USER.nickname,
+    avatar: post?.avatar || MOCK_USER.avatar,
+    text: post?.text || "",
+    tags: Array.isArray(post?.tags) ? post.tags : [],
+    reactions: post?.reactions || {},
+    comments: post?.comments || 0,
+    createdAt: post?.createdAt || new Date().toISOString(),
+  }));
+
+const normalizeReposts = (list) =>
+  list.map((item, index) => ({
+    ...item,
+    id: item?.id || `repost_${index}`,
+    originalBubbleId: item?.originalBubbleId || item?.postId || "",
+    originalText: item?.originalText || item?.text || "",
+    overlayText: item?.overlayText || "",
+    timeAgo: item?.timeAgo || "just now",
+    originalAuthor: item?.originalAuthor || item?.author || "@anonymous",
+  }));
+
 const ProfileScreen = () => {
   const [user, setUser] = useState(MOCK_USER);
   const [userBubbles, setUserBubbles] = useState(MOCK_USER_BUBBLES);
@@ -103,10 +156,31 @@ const ProfileScreen = () => {
 
   const fetchUserData = async () => {
     setIsLoading(true);
-    setTimeout(() => {
+    try {
+      const [profilePayload, postsPayload, repostsPayload] = await Promise.all([
+        getMyProfile(),
+        getMyPosts(),
+        getMyReposts(),
+      ]);
+
+      const profile = normalizeProfile(profilePayload);
+      const posts = normalizePosts(unwrapList(postsPayload));
+      const reposts = normalizeReposts(unwrapList(repostsPayload));
+
+      setUser(profile);
+      setUserBubbles(posts.length > 0 ? posts : MOCK_USER_BUBBLES);
+      setUserReposts(reposts.length > 0 ? reposts : MOCK_USER_REPOSTS);
+    } catch (error) {
+      if (__DEV__) {
+        console.log("Profile request failed, using fallback data:", error);
+      }
+      setUser(MOCK_USER);
+      setUserBubbles(MOCK_USER_BUBBLES);
+      setUserReposts(MOCK_USER_REPOSTS);
+    } finally {
       setIsLoading(false);
       setRefreshing(false);
-    }, 1000);
+    }
   };
 
   useEffect(() => {
@@ -118,13 +192,18 @@ const ProfileScreen = () => {
     fetchUserData();
   }, []);
 
-  const handleAvatarSelect = (avatarKey) => {
+  const handleAvatarSelect = async (avatarKey) => {
     setUser((prev) => ({
       ...prev,
       avatar: avatarKey,
     }));
-    console.log("Avatar updated to:", avatarKey);
-    setShowAvatarPicker(false);
+
+    try {
+      await updateMyAvatar({ avatar: avatarKey });
+      setShowAvatarPicker(false);
+    } catch (error) {
+      Alert.alert("Avatar Update Failed", error?.message || "Please try again.");
+    }
   };
 
   const handleReport = (data) => {
@@ -143,7 +222,13 @@ const ProfileScreen = () => {
       {
         text: "Log Out",
         style: "destructive",
-        onPress: () => router.replace("/(auth)/Login"),
+        onPress: async () => {
+          try {
+            await logout();
+          } finally {
+            router.replace("/(auth)/Login");
+          }
+        },
       },
     ]);
   };
@@ -162,10 +247,18 @@ const ProfileScreen = () => {
         {
           text: "Delete",
           style: "destructive",
-          onPress: () => {
-            setUserBubbles((prev) =>
-              prev.filter((bubble) => bubble.id !== bubbleId)
-            );
+          onPress: async () => {
+            try {
+              await deleteMyPost({ postId: bubbleId });
+            } catch (error) {
+              if (__DEV__) {
+                console.log("Delete post request failed:", error);
+              }
+            } finally {
+              setUserBubbles((prev) =>
+                prev.filter((bubble) => bubble.id !== bubbleId)
+              );
+            }
           },
         },
       ]
@@ -181,10 +274,18 @@ const ProfileScreen = () => {
         {
           text: "Delete",
           style: "destructive",
-          onPress: () => {
-            setUserReposts((prev) =>
-              prev.filter((repost) => repost.id !== repostId)
-            );
+          onPress: async () => {
+            try {
+              await deleteMyRepost({ repostId });
+            } catch (error) {
+              if (__DEV__) {
+                console.log("Delete repost request failed:", error);
+              }
+            } finally {
+              setUserReposts((prev) =>
+                prev.filter((repost) => repost.id !== repostId)
+              );
+            }
           },
         },
       ]
