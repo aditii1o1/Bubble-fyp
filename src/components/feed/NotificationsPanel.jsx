@@ -1,5 +1,5 @@
 // src/components/header/NotificationsPanel.jsx
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -8,9 +8,15 @@ import {
   Modal,
   Pressable,
   ScrollView,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { theme } from "../../constants/themes";
+import {
+  getNotifications,
+  markNotificationRead as markNotificationReadApi,
+  markAllNotificationsRead as markAllNotificationsReadApi,
+} from "../../services/notificationService";
 
 const mockNotifications = [
   {
@@ -55,17 +61,85 @@ const mockNotifications = [
   },
 ];
 
-const NotificationsPanel = ({ visible, onClose, unreadCount = 0 }) => {
-  const [notifications, setNotifications] = useState(mockNotifications);
+const normalizeNotifications = (payload) => {
+  const list = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.data)
+    ? payload.data
+    : Array.isArray(payload?.notifications)
+    ? payload.notifications
+    : [];
 
-  const markNotificationRead = (id) => {
+  return list.map((notif, index) => ({
+    id: notif?.id || `notif_${index}`,
+    type: notif?.type || "reaction",
+    emoji: notif?.emoji || "🔔",
+    user: notif?.user || "@anonymous",
+    time: notif?.time || "just now",
+    read: Boolean(notif?.read),
+  }));
+};
+
+const NotificationsPanel = ({ visible, onClose, unreadCount = 0 }) => {
+  const [notifications, setNotifications] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const fetchNotifications = async () => {
+    setIsLoading(true);
+    try {
+      const response = await getNotifications();
+      const normalized = normalizeNotifications(response);
+      setNotifications(
+        normalized.length > 0 ? normalized : [...mockNotifications]
+      );
+    } catch (error) {
+      if (__DEV__) {
+        console.log("Notifications request failed, using fallback:", error);
+      }
+      setNotifications([...mockNotifications]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (visible) {
+      fetchNotifications();
+    }
+  }, [visible]);
+
+  const localUnreadCount = useMemo(
+    () => notifications.filter((notif) => !notif.read).length,
+    [notifications]
+  );
+
+  const effectiveUnreadCount =
+    notifications.length > 0 ? localUnreadCount : unreadCount;
+
+  const markNotificationRead = async (id) => {
     setNotifications((prev) =>
       prev.map((notif) => (notif.id === id ? { ...notif, read: true } : notif))
     );
+
+    try {
+      await markNotificationReadApi({ notificationId: id });
+    } catch (error) {
+      if (__DEV__) {
+        console.log("Mark-read request failed:", error);
+      }
+    }
   };
 
-  const markAllNotificationsRead = () => {
+  const markAllNotificationsRead = async () => {
     setNotifications((prev) => prev.map((notif) => ({ ...notif, read: true })));
+
+    try {
+      await markAllNotificationsReadApi();
+    } catch (error) {
+      if (__DEV__) {
+        console.log("Mark-all-read request failed:", error);
+      }
+    }
   };
 
   const getNotificationText = (notif) => {
@@ -114,17 +188,18 @@ const NotificationsPanel = ({ visible, onClose, unreadCount = 0 }) => {
 
             <View style={styles.headerContent}>
               <Text style={styles.title}>Notifications</Text>
-              {unreadCount > 0 && (
+              {effectiveUnreadCount > 0 && (
                 <View style={styles.subtitleContainer}>
                   <View style={styles.subtitleDot} />
                   <Text style={styles.subtitle}>
-                    {unreadCount} new {unreadCount === 1 ? "update" : "updates"}
+                    {effectiveUnreadCount} new{" "}
+                    {effectiveUnreadCount === 1 ? "update" : "updates"}
                   </Text>
                 </View>
               )}
             </View>
 
-            {unreadCount > 0 && (
+            {effectiveUnreadCount > 0 && (
               <TouchableOpacity
                 style={styles.markReadButton}
                 onPress={markAllNotificationsRead}
@@ -140,7 +215,15 @@ const NotificationsPanel = ({ visible, onClose, unreadCount = 0 }) => {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContent}
           >
-            {notifications.length === 0 ? (
+            {isLoading ? (
+              <View style={styles.loadingState}>
+                <ActivityIndicator
+                  size="large"
+                  color={theme.colors.primaryPink}
+                />
+                <Text style={styles.loadingText}>Loading notifications...</Text>
+              </View>
+            ) : notifications.length === 0 ? (
               <View style={styles.emptyState}>
                 <View style={styles.emptyIconContainer}>
                   <Ionicons
@@ -278,6 +361,18 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingBottom: 20,
+  },
+  loadingState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 80,
+    paddingHorizontal: 40,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    fontFamily: theme.fonts.regular,
   },
   emptyState: {
     alignItems: "center",
