@@ -2,15 +2,16 @@ import React, { useState } from "react";
 import {
   View,
   Text,
-  Modal,
   TouchableOpacity,
   TextInput,
   StyleSheet,
   ScrollView,
   Pressable,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { theme } from "../../constants/themes";
+import { reportContent } from "../../services/moderationService";
 
 const REPORT_REASONS = {
   post: [
@@ -31,7 +32,12 @@ const REPORT_REASONS = {
   ],
 };
 
-export default function ReportModal({ type = "post", onClose, onSubmit }) {
+export default function ReportModal({
+  type = "post",
+  targetId = null,
+  onClose,
+  onSubmit,
+}) {
   const [selectedReason, setSelectedReason] = useState(null);
   const [additionalInfo, setAdditionalInfo] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -42,15 +48,25 @@ export default function ReportModal({ type = "post", onClose, onSubmit }) {
     if (!selectedReason) return;
 
     setIsSubmitting(true);
-    await new Promise((r) => setTimeout(r, 500));
-
-    onSubmit?.({
+    const payload = {
       reason: selectedReason,
       additionalInfo: additionalInfo.trim(),
-    });
+    };
 
-    setIsSubmitting(false);
-    onClose();
+    try {
+      await reportContent({
+        targetType: type,
+        targetId,
+        reason: payload.reason,
+        additionalInfo: payload.additionalInfo,
+      });
+      onSubmit?.(payload);
+      onClose();
+    } catch (error) {
+      Alert.alert("Report Failed", error?.message || "Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
