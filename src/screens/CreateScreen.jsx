@@ -18,11 +18,13 @@ import TagChip from "../components/feed/TagChip";
 import CustomButton from "../components/common/CustomButton";
 import { theme } from "../constants/themes";
 import { createPost } from "../services/postService";
+import { formatRequestError } from "../utils/requestState";
 
 export default function CreateScreen() {
   const router = useRouter();
   const [selectedTags, setSelectedTags] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   // Initialize React Hook Form
   const {
@@ -77,7 +79,7 @@ export default function CreateScreen() {
         tags: selectedTags,
       });
 
-      setIsSubmitting(false);
+      setSubmitError("");
       reset();
       setSelectedTags([]);
       Alert.alert("Success!", "Your bubble has been posted anonymously", [
@@ -87,7 +89,10 @@ export default function CreateScreen() {
         },
       ]);
     } catch (error) {
-      Alert.alert("Post Failed", error?.message || "Please try again.");
+      const message = formatRequestError(error, "Unable to post bubble.");
+      setSubmitError(message);
+      Alert.alert("Post Failed", message);
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -186,6 +191,7 @@ export default function CreateScreen() {
         {/* You could add a tag validation error message here if needed */}
 
         {/* Submit Button */}
+        {submitError ? <Text style={styles.submitError}>{submitError}</Text> : null}
         <CustomButton
           title={isSubmitting ? "Posting..." : "Post Bubble"}
           variant="primary"
@@ -301,6 +307,12 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     marginTop: theme.spacing.xl,
+  },
+  submitError: {
+    marginTop: theme.spacing.md,
+    color: theme.colors.error,
+    fontSize: theme.fontSize.sm,
+    fontFamily: theme.fontFamily.regular,
   },
   privacyNote: {
     flexDirection: "row",
