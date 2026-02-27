@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -6,62 +6,115 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
+  RefreshControl,
+  SafeAreaView,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import TagChip from "../components/feed/TagChip";
 import BubbleCard from "../components/feed/BubbleCard";
-import { theme } from "../constants/theme";
+import { theme } from "../constants/themes";
+import { mockBubbles, mockTags } from "../data/mockData";
+import { getFeed } from "../services/postService";
 
-const ExploreScreen = () => {
+const normalizeExploreFeed = (payload) => {
+  const list = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.data)
+    ? payload.data
+    : Array.isArray(payload?.posts)
+    ? payload.posts
+    : [];
+
+  return list.map((item, index) => ({
+    ...item,
+    id: item?.id || `explore_${index}`,
+    text: item?.text || "",
+    nickname: item?.nickname || "@anonymous",
+    avatar: item?.avatar || "cat",
+    tags: Array.isArray(item?.tags) ? item.tags : [],
+    reactions: item?.reactions || {},
+    expiresAt:
+      item?.expiresAt ||
+      new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+  }));
+};
+
+const sanitizeTag = (tag) => tag.replace(/^#/, "").toLowerCase();
+
+export default function ExploreScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTag, setSelectedTag] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [bubbles, setBubbles] = useState([]);
 
-  const trendingTags = [
-    "#mentalhealth",
-    "#college",
-    "#relationships",
-    "#tech",
-    "#coding",
-    "#motivation",
-    "#anxiety",
-    "#study",
-    "#work",
-    "#selfcare",
-  ];
+  const fetchExploreFeed = useCallback(async ({ isRefresh = false } = {}) => {
+    if (!isRefresh) {
+      setIsLoading(true);
+    }
 
-  const popularBubbles = [
-    {
-      id: "e1",
-      nickname: "@anxious_student",
-      text: "Having my first panic attack during an exam. Professor was understanding but I'm so embarrassed.",
-      preview: "Having my first panic attack during an exam...",
-      tags: ["#college", "#anxiety", "#mentalhealth"],
-      reactions: { heart: 245, bulb: 89, hug: 156 },
-      commentCount: 42,
-    },
-    {
-      id: "e2",
-      nickname: "@burntout_coder",
-      text: "6 months into my first dev job and the imposter syndrome is real. Everyone seems to know so much more than me.",
-      preview: "6 months into my first dev job and the imposter syndrome...",
-      tags: ["#tech", "#coding", "#work"],
-      reactions: { heart: 189, bulb: 67, hug: 98 },
-      commentCount: 31,
-    },
-  ];
+    try {
+      const response = await getFeed({ sort: "trending" });
+      const normalized = normalizeExploreFeed(response);
+      setBubbles(normalized.length > 0 ? normalized : mockBubbles);
+    } catch (error) {
+      if (__DEV__) {
+        console.log("Explore request failed, using fallback:", error);
+      }
+      setBubbles(mockBubbles);
+    } finally {
+      setIsLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchExploreFeed();
+  }, [fetchExploreFeed]);
+
+  const trendingTags = useMemo(() => {
+    const sourceTags = mockTags.slice(0, 10);
+    return sourceTags.map((tag) => `#${tag}`);
+  }, []);
+
+  const filteredBubbles = useMemo(() => {
+    const search = searchQuery.trim().toLowerCase();
+    const normalizedSelectedTag = selectedTag
+      ? sanitizeTag(selectedTag)
+      : null;
+
+    return bubbles.filter((bubble) => {
+      const bubbleText = bubble.text.toLowerCase();
+      const bubbleTags = (bubble.tags || []).map((tag) =>
+        sanitizeTag(String(tag))
+      );
+
+      const matchesSearch =
+        !search ||
+        bubbleText.includes(search) ||
+        bubbleTags.some((tag) => tag.includes(search));
+
+      const matchesTag =
+        !normalizedSelectedTag ||
+        bubbleTags.includes(normalizedSelectedTag);
+
+      return matchesSearch && matchesTag;
+    });
+  }, [bubbles, searchQuery, selectedTag]);
 
   const handleTagSelect = (tag) => {
     setSelectedTag(tag === selectedTag ? null : tag);
   };
 
-  const handleReact = (bubbleId, emoji) => {
-    console.log(`Reacted ${emoji} to bubble ${bubbleId}`);
+  const handleReact = () => {};
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchExploreFeed({ isRefresh: true });
   };
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      {/* Search Bar */}
       <View style={styles.searchContainer}>
         <MaterialIcons
           name="search"
@@ -87,7 +140,6 @@ const ExploreScreen = () => {
         )}
       </View>
 
-      {/* Trending Tags */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Trending Tags</Text>
         <ScrollView
@@ -98,7 +150,7 @@ const ExploreScreen = () => {
           {trendingTags.map((tag) => (
             <TagChip
               key={tag}
-              tag={tag}
+              tag={sanitizeTag(tag)}
               selected={selectedTag === tag}
               onPress={() => handleTagSelect(tag)}
               style={styles.tagChip}
@@ -107,47 +159,42 @@ const ExploreScreen = () => {
         </ScrollView>
       </View>
 
-      {/* Popular Bubbles */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Popular Bubbles</Text>
-          <TouchableOpacity>
-            <Text style={styles.seeAll}>See All</Text>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView style={styles.bubblesList}>
-          {popularBubbles.map((bubble) => (
-            <BubbleCard key={bubble.id} bubble={bubble} onReact={handleReact} />
-          ))}
-        </ScrollView>
-      </View>
-
-      {/* Tag Suggestions */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Discover More</Text>
-        <View style={styles.tagGrid}>
-          {[
-            "#loneliness",
-            "#friendship",
-            "#family",
-            "#goals",
-            "#failure",
-            "#success",
-          ].map((tag) => (
-            <TouchableOpacity
-              key={tag}
-              style={styles.tagButton}
-              onPress={() => handleTagSelect(tag)}
-            >
-              <Text style={styles.tagButtonText}>{tag}</Text>
+          <Text style={styles.sectionTitle}>Explore Feed</Text>
+          {selectedTag && (
+            <TouchableOpacity onPress={() => setSelectedTag(null)}>
+              <Text style={styles.seeAll}>Clear Tag</Text>
             </TouchableOpacity>
-          ))}
+          )}
         </View>
+
+        <ScrollView
+          style={styles.bubblesList}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[theme.colors.primaryPink]}
+            />
+          }
+        >
+          {isLoading ? (
+            <Text style={styles.placeholderText}>Loading explore feed...</Text>
+          ) : filteredBubbles.length === 0 ? (
+            <Text style={styles.placeholderText}>
+              No bubbles match your search yet.
+            </Text>
+          ) : (
+            filteredBubbles.map((bubble) => (
+              <BubbleCard key={bubble.id} bubble={bubble} onReact={handleReact} />
+            ))
+          )}
+        </ScrollView>
       </View>
     </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -206,22 +253,10 @@ const styles = StyleSheet.create({
   bubblesList: {
     maxHeight: 600,
   },
-  tagGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginHorizontal: -theme.spacing.xs,
-  },
-  tagButton: {
-    backgroundColor: theme.colors.bgSoft,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.borderRadius.md,
-    margin: theme.spacing.xs,
-  },
-  tagButtonText: {
-    color: theme.colors.textDark,
-    fontSize: theme.fontSize.sm,
+  placeholderText: {
+    textAlign: "center",
+    color: theme.colors.textMuted,
+    paddingVertical: theme.spacing.xl,
+    fontFamily: theme.fontFamily.regular,
   },
 });
-
-export default ExploreScreen;
