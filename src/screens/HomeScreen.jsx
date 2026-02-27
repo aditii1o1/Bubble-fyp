@@ -18,6 +18,7 @@ import Skeleton from "../components/feed/Skeleton";
 import FilterModal from "../components/feed/FilterModal";
 import { getFeed } from "../services/postService";
 import { mockBubbles, mockTags } from "../data/mockData";
+import { formatRequestError } from "../utils/requestState";
 
 const normalizeFeedResponse = (payload) => {
   const list = Array.isArray(payload)
@@ -47,6 +48,7 @@ const HomeScreen = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   // Filter state - only tags now
   const [selectedTags, setSelectedTags] = useState([]);
@@ -60,10 +62,14 @@ const HomeScreen = () => {
       const response = await getFeed();
       const feed = normalizeFeedResponse(response);
       setBubbles(feed.length > 0 ? feed : mockBubbles);
+      setErrorMessage("");
     } catch (error) {
       if (__DEV__) {
         console.log("Feed request failed, falling back to mock data:", error);
       }
+      setErrorMessage(
+        formatRequestError(error, "Unable to refresh feed right now.")
+      );
       setBubbles(mockBubbles);
     } finally {
       setIsLoading(false);
@@ -206,15 +212,27 @@ const HomeScreen = () => {
             )}
           </View>
         ) : (
-          // Show bubbles
-          filteredBubbles.map((bubble) => (
-            <BubbleCard
-              key={bubble.id}
-              bubble={bubble}
-              onReact={handleReact}
-              onViewProfile={handleViewProfile}
-            />
-          ))
+          <>
+            {errorMessage ? (
+              <View style={styles.errorBanner}>
+                <Text style={styles.errorBannerText}>{errorMessage}</Text>
+                <TouchableOpacity
+                  style={styles.retryButton}
+                  onPress={() => fetchBubbles()}
+                >
+                  <Text style={styles.retryButtonText}>Retry</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+            {filteredBubbles.map((bubble) => (
+              <BubbleCard
+                key={bubble.id}
+                bubble={bubble}
+                onReact={handleReact}
+                onViewProfile={handleViewProfile}
+              />
+            ))}
+          </>
         )}
       </ScrollView>
 
@@ -324,6 +342,37 @@ const styles = StyleSheet.create({
   clearFiltersButtonText: {
     color: "white",
     fontSize: 14,
+    fontFamily: theme.fonts.bold,
+  },
+  errorBanner: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.error + "40",
+    backgroundColor: theme.colors.error + "12",
+    padding: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  errorBannerText: {
+    flex: 1,
+    color: theme.colors.error,
+    fontSize: theme.fontSize.sm,
+    fontFamily: theme.fonts.regular,
+  },
+  retryButton: {
+    backgroundColor: theme.colors.error,
+    borderRadius: theme.borderRadius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  retryButtonText: {
+    color: theme.colors.white,
+    fontSize: theme.fontSize.sm,
     fontFamily: theme.fonts.bold,
   },
 });
