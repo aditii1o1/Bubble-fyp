@@ -30,8 +30,18 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
-.env*.local
+# Local env files (never commit)
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+!.env.shared.example
+
+# Native secrets
+google-services.json
+GoogleService-Info.plist
 
 # typescript
 *.tsbuildinfo
@@ -39,3 +49,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Local Codex session data
+codex_sessions/
+.codex/
