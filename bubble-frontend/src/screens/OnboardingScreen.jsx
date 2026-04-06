@@ -13,6 +13,7 @@ import { styles } from "./OnboardingScreen.styles";
 import { useToast } from "../context/ToastContext";
 import { moderationService } from "../services/moderationService";
 import DismissKeyboard from "../components/common/DismissKeyboard";
+import { pickImageFromLibrary } from "../utils/imagePicker";
 
 export default function OnboardingScreen() {
   const { state, dispatch } = useAppContext();
@@ -26,6 +27,7 @@ export default function OnboardingScreen() {
       username: String(state.profile?.username || "").trim(),
       bio: String(state.profile?.bio || "").trim(),
       avatar: state.profile?.avatar || "cat",
+      avatarUrl: state.profile?.avatarUrl || null,
     };
   }, [state.profile]);
 
@@ -33,8 +35,10 @@ export default function OnboardingScreen() {
   const [username, setUsername] = useState(initial.username);
   const [bio, setBio] = useState(initial.bio);
   const [avatar, setAvatar] = useState(initial.avatar);
+  const [avatarUrl, setAvatarUrl] = useState(initial.avatarUrl);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [dirty, setDirty] = useState(false);
 
   // If profile loads after navigation (common with Firebase), hydrate the form once.
@@ -43,7 +47,8 @@ export default function OnboardingScreen() {
     if (initial.username && !String(username || "").trim()) setUsername(initial.username);
     if (initial.bio && !String(bio || "").trim()) setBio(initial.bio);
     if (initial.avatar && avatar === "cat") setAvatar(initial.avatar);
-  }, [avatar, bio, dirty, initial, isSaving, username]);
+    if (initial.avatarUrl && !avatarUrl) setAvatarUrl(initial.avatarUrl);
+  }, [avatar, avatarUrl, bio, dirty, initial, isSaving, username]);
 
   useEffect(() => {
     // If the profile loads later, ensure first-time users see the intro.
@@ -76,7 +81,7 @@ export default function OnboardingScreen() {
           me = await userService.updateProfile({
             bio: cleanBio,
             avatar,
-            avatarUrl: null,
+            avatarUrl,
           });
         } else {
           if (!/^[a-z0-9_]{3,20}$/.test(desiredUsername)) {
@@ -94,7 +99,7 @@ export default function OnboardingScreen() {
             username: desiredUsername,
             bio: cleanBio,
             avatar,
-            avatarUrl: null,
+            avatarUrl,
           });
         }
 
@@ -131,7 +136,37 @@ export default function OnboardingScreen() {
         setIsSaving(false);
       }
     })();
-  }, [avatar, bio, dispatch, isEditing, showToast, state.profile, state.role, state.user?.email, uid, username]);
+  }, [avatar, avatarUrl, bio, dispatch, isEditing, showToast, state.profile, state.role, state.user?.email, uid, username]);
+
+  const handleAvatarUpload = useCallback(() => {
+    (async () => {
+      if (!uid) {
+        showToast("Session missing. Please sign in again.", { type: "error" });
+        router.replace("/(auth)/Login");
+        return;
+      }
+
+      try {
+        setIsUploadingAvatar(true);
+        const { cancelled, file, error } = await pickImageFromLibrary();
+        if (cancelled) {
+          if (error) showToast(error, { type: "error" });
+          return;
+        }
+
+        const me = await userService.uploadAvatar(file);
+        if (!me?.id) throw new Error("Could not update profile photo.");
+
+        setAvatarUrl(me.avatarUrl || null);
+        showToast("Profile photo updated!", { type: "success" });
+        setShowAvatarPicker(false);
+      } catch (e) {
+        showToast(e?.message || "Could not upload photo. Try again.", { type: "error" });
+      } finally {
+        setIsUploadingAvatar(false);
+      }
+    })();
+  }, [showToast, uid]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -223,7 +258,7 @@ export default function OnboardingScreen() {
 
                 <Text style={styles.label}>Avatar</Text>
                 <CustomButton
-                  title="Choose Emoji Avatar"
+                  title="Choose Avatar"
                   variant="secondary"
                   onPress={() => setShowAvatarPicker(true)}
                   style={styles.button}
@@ -247,9 +282,12 @@ export default function OnboardingScreen() {
         selectedAvatar={avatar}
         onSelect={(key) => {
           setAvatar(key);
+          setAvatarUrl(null);
           setShowAvatarPicker(false);
         }}
         onClose={() => setShowAvatarPicker(false)}
+        onUploadPress={handleAvatarUpload}
+        uploading={isUploadingAvatar}
       />
     </SafeAreaView>
   );

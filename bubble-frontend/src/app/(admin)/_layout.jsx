@@ -20,6 +20,7 @@ export default function AdminLayout() {
       <Stack.Screen name="reports/Resolved" />
       <Stack.Screen name="ReportDetail" />
       <Stack.Screen name="Users" />
+      <Stack.Screen name="Donations" />
       <Stack.Screen name="Settings" />
       <Stack.Screen name="Moderation" />
       <Stack.Screen name="Notifications" />

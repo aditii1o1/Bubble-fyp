@@ -6,6 +6,7 @@ import { adminController } from "../controllers/adminController.js";
 const router = express.Router();
 
 router.get("/dashboard", requireAuth, requireAdmin, adminController.getDashboardCounts);
+router.get("/donations", requireAuth, requireAdmin, adminController.getDonations);
 router.get("/users", requireAuth, requireAdmin, adminController.getUsers);
 router.patch("/users/:id/ban", requireAuth, requireAdmin, adminController.banUser);
 router.patch("/users/:id/unban", requireAuth, requireAdmin, adminController.unbanUser);

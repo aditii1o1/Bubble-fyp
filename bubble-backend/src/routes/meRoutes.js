@@ -1,5 +1,6 @@
 import express from "express";
 import { requireAuth } from "../middleware/requireAuth.js";
+import { uploadAvatarImage } from "../middleware/upload.js";
 import { meController } from "../controllers/meController.js";
 
 const router = express.Router();
@@ -7,5 +8,6 @@ const router = express.Router();
 router.get("/", requireAuth, meController.getMe);
 router.patch("/onboarding", requireAuth, meController.completeOnboarding);
 router.patch("/profile", requireAuth, meController.updateProfile);
+router.post("/avatar", requireAuth, uploadAvatarImage, meController.uploadAvatar);
 
 export default router;

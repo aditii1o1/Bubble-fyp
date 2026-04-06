@@ -15,6 +15,8 @@ import repostRoutes from "./routes/repostRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import moderationRoutes from "./routes/moderationRoutes.js";
+import donationRoutes from "./routes/donationRoutes.js";
+import { donationController } from "./controllers/donationController.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -46,6 +48,8 @@ async function main() {
   app.use("/api/notifications", notificationRoutes);
   app.use("/api/admin", adminRoutes);
   app.use("/api/moderation", moderationRoutes);
+  app.use("/api/donate", donationRoutes);
+  app.get("/payment/callback", donationController.callbackPage);
 
   app.use(notFound);
   app.use(errorHandler);

@@ -69,7 +69,7 @@ export default function AdminDashboard() {
             <Ionicons name="log-out-outline" size={18} color={theme.colors.text} />
           </TouchableOpacity>
         </View>
-        <Text style={styles.subtitle}>Moderation dashboard • {state.user?.email}</Text>
+        <Text style={styles.subtitle}>Moderation dashboard - {state.user?.email}</Text>
       </View>
 
       <View style={styles.statsRow}>
@@ -118,6 +118,14 @@ export default function AdminDashboard() {
         activeOpacity={0.8}
       >
         <Text style={styles.secondaryButtonText}>Manage Users</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.secondaryButton}
+        onPress={() => router.push("/(admin)/Donations")}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.secondaryButtonText}>View Donations</Text>
       </TouchableOpacity>
 
       <TouchableOpacity

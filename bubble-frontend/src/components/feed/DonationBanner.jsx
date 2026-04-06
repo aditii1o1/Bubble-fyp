@@ -3,20 +3,28 @@ import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { theme } from "../../constants/themes";
 
-const DonationBanner = () => {
+const DonationBanner = ({ onDonate, amountLabel }) => {
   return (
     <View style={styles.container}>
-      <View style={styles.iconContainer}>
-        <Ionicons name="heart-outline" size={24} color={theme.colors.primary} />
+      <View style={styles.row}>
+        <View style={styles.iconContainer}>
+          <Ionicons name="heart-outline" size={24} color={theme.colors.primary} />
+        </View>
+        <View style={styles.content}>
+          <Text style={styles.title}>Support Bubble</Text>
+          <Text style={styles.subtitle}>
+            Help keep our community ad-free and independent
+          </Text>
+        </View>
       </View>
-      <View style={styles.content}>
-        <Text style={styles.title}>Support Bubble</Text>
-        <Text style={styles.subtitle}>
-          Help keep our community ad-free and independent
+      <TouchableOpacity
+        style={styles.button}
+        activeOpacity={0.7}
+        onPress={onDonate}
+      >
+        <Text style={styles.buttonText}>
+          Donate
         </Text>
-      </View>
-      <TouchableOpacity style={styles.button} activeOpacity={0.7}>
-        <Text style={styles.buttonText}>Donate</Text>
       </TouchableOpacity>
     </View>
   );
@@ -24,8 +32,7 @@ const DonationBanner = () => {
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: "column",
     backgroundColor: theme.colors.background,
     borderRadius: theme.borderRadius.lg,
     padding: theme.spacing.lg,
@@ -33,6 +40,10 @@ const styles = StyleSheet.create({
     marginVertical: theme.spacing.md,
     borderWidth: 1,
     borderColor: theme.colors.border,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   iconContainer: {
     width: 48,
@@ -63,7 +74,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.sm,
     borderRadius: theme.borderRadius.round,
-    marginLeft: theme.spacing.md,
+    marginTop: theme.spacing.md,
+    alignSelf: "center",
   },
   buttonText: {
     fontSize: theme.typography.fontSize.sm,
