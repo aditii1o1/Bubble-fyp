@@ -7,6 +7,8 @@ import { Post } from "../models/Post.js";
 import { Comment } from "../models/Comment.js";
 import { PostReaction } from "../models/PostReaction.js";
 import { CommentReaction } from "../models/CommentReaction.js";
+import { Donation } from "../models/Donation.js";
+import { serializeDonation } from "../utils/donations.js";
 
 function formatReport(reportDoc) {
   return {
@@ -49,6 +51,47 @@ const adminController = {
         Post.countDocuments({})
       ]);
       return res.json({ openReports, users, posts, comments: 0 });
+    } catch (e) {
+      return next(e);
+    }
+  },
+
+  getDonations: async (req, res, next) => {
+    try {
+      const pageSize = Math.max(
+        1,
+        Math.min(200, parseInt(req.query?.pageSize, 10) || 100)
+      );
+      const status =
+        typeof req.query?.status === "string" && req.query.status.trim()
+          ? req.query.status.trim()
+          : "";
+      const q =
+        typeof req.query?.q === "string" && req.query.q.trim()
+          ? req.query.q.trim()
+          : "";
+
+      const query = {};
+      if (status) query.status = status;
+      if (q) {
+        const regex = new RegExp(q, "i");
+        query.$or = [
+          { donorName: regex },
+          { userEmail: regex },
+          { userNickname: regex },
+          { userUsername: regex },
+          { pidx: regex },
+          { purchaseOrderId: regex },
+          { transactionId: regex },
+        ];
+      }
+
+      const donationDocs = await Donation.find(query)
+        .sort({ createdAt: -1 })
+        .limit(pageSize)
+        .lean();
+
+      return res.json({ donations: donationDocs.map((doc) => serializeDonation(doc)) });
     } catch (e) {
       return next(e);
     }

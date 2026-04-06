@@ -6,6 +6,7 @@ import {
   ScrollView,
   Modal,
   Pressable,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { theme } from "../../../constants/themes";
@@ -17,6 +18,9 @@ export default function AvatarPicker({
   selectedAvatar,
   onSelect,
   onClose,
+  onUploadPress,
+  uploadLabel = "Upload Photo",
+  uploading = false,
 }) {
   const avatarOptions = useMemo(() => Object.entries(AVATAR_EMOJIS), []);
   const [tempAvatar, setTempAvatar] = useState(selectedAvatar);
@@ -39,6 +43,30 @@ export default function AvatarPicker({
           </View>
 
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+            {onUploadPress ? (
+              <TouchableOpacity
+                style={[styles.pickButton, uploading && styles.pickButtonDisabled]}
+                onPress={onUploadPress}
+                disabled={uploading}
+                activeOpacity={0.85}
+              >
+                <View style={styles.pickButtonRow}>
+                  <Ionicons
+                    name="image-outline"
+                    size={18}
+                    color={theme.colors.text}
+                    style={styles.pickButtonIcon}
+                  />
+                  <Text style={styles.pickButtonText}>
+                    {uploading ? "Uploading..." : uploadLabel}
+                  </Text>
+                </View>
+                {uploading ? (
+                  <ActivityIndicator size="small" color={theme.colors.text} />
+                ) : null}
+              </TouchableOpacity>
+            ) : null}
+
             <Text style={styles.subtitle}>Select an emoji that represents you</Text>
 
             <View style={styles.avatarGrid}>

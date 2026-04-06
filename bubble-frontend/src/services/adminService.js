@@ -98,4 +98,12 @@ export const adminService = {
     const res = await api.get("/admin/dashboard");
     return res.data;
   },
+
+  getDonations: async ({ pageSize = 100, status, q } = {}) => {
+    const params = { pageSize };
+    if (status) params.status = status;
+    if (q) params.q = q;
+    const res = await api.get("/admin/donations", { params });
+    return Array.isArray(res.data?.donations) ? res.data.donations : [];
+  },
 };

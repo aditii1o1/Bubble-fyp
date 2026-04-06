@@ -25,6 +25,7 @@ import { repostService } from "../services/repostService";
 import { postService } from "../services/postService";
 import { authService } from "../services/authService";
 import { useToast } from "../context/ToastContext";
+import { pickImageFromLibrary } from "../utils/imagePicker";
 
 export default function ProfileScreen() {
   const { state, dispatch } = useAppContext();
@@ -34,6 +35,7 @@ export default function ProfileScreen() {
   const [showReportModal, setShowReportModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [userPosts, setUserPosts] = useState([]);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
   const email = String(state.user?.email || "").trim().toLowerCase();
   const uid = String(state.user?.uid || "").trim();
@@ -127,6 +129,53 @@ export default function ProfileScreen() {
     })();
     setShowAvatarPicker(false);
   };
+
+  const handleAvatarUpload = useCallback(() => {
+    (async () => {
+      if (!uid) {
+        showToast("Session missing. Please sign in again.", { type: "error" });
+        return;
+      }
+
+      try {
+        setIsUploadingAvatar(true);
+        const { cancelled, file, error } = await pickImageFromLibrary();
+        if (cancelled) {
+          if (error) showToast(error, { type: "error" });
+          return;
+        }
+
+        const me = await userService.uploadAvatar(file);
+        if (!me?.id) throw new Error("Could not update profile photo.");
+
+        const updates = {
+          uid: me.id,
+          email: me.email,
+          role: me.role,
+          banned: !!me.banned,
+          onboarded: !!me.onboarded,
+          username: me.username || "",
+          nickname: me.nickname || "@anonymous",
+          bio: me.bio || "",
+          avatar: me.avatar || "cat",
+          avatarUrl: me.avatarUrl || null,
+        };
+
+        dispatch(appActions.setProfile(updates));
+        dispatch(appActions.updateMyPostsAuthor(uid, {
+          avatar: updates.avatar,
+          avatarUrl: updates.avatarUrl,
+        }));
+        await cacheService.saveUser(updates);
+        showToast("Profile photo updated!", { type: "success" });
+        setShowAvatarPicker(false);
+      } catch (e) {
+        showToast(e?.message || "Could not upload photo. Try again.", { type: "error" });
+      } finally {
+        setIsUploadingAvatar(false);
+      }
+    })();
+  }, [dispatch, showToast, uid]);
 
 	  const handleDeleteBubble = (bubbleId) => {
 	    confirmAlert({
@@ -227,7 +276,7 @@ export default function ProfileScreen() {
           onEditPress={() => router.push("/(onboarding)/setup")}
         />
 
-        <DonationBanner />
+        <DonationBanner onDonate={() => router.push("/donate")} />
 
         <SegmentedTabs
           tabs={tabs}
@@ -265,6 +314,8 @@ export default function ProfileScreen() {
         selectedAvatar={avatar}
         onSelect={handleAvatarSelect}
         onClose={() => setShowAvatarPicker(false)}
+        onUploadPress={handleAvatarUpload}
+        uploading={isUploadingAvatar}
       />
 
       <Modal

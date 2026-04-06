@@ -1,4 +1,5 @@
 import { User } from "../models/User.js";
+import { cloudinary, getCloudinaryConfig } from "../config/cloudinary.js";
 
 function normalizeUsername(username) {
   return String(username || "").trim().toLowerCase();
@@ -22,6 +23,16 @@ function publicMe(u) {
     avatar: u.avatar || "cat",
     avatarUrl: u.avatarUrl || null
   };
+}
+
+function uploadBufferToCloudinary(buffer, options = {}) {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(options, (err, result) => {
+      if (err) return reject(err);
+      resolve(result);
+    });
+    stream.end(buffer);
+  });
 }
 
 const meController = {
@@ -84,6 +95,37 @@ const meController = {
       }
 
       await me.save();
+      return res.json({ user: publicMe(me) });
+    } catch (e) {
+      return next(e);
+    }
+  },
+
+  uploadAvatar: async (req, res, next) => {
+    try {
+      const { enabled } = getCloudinaryConfig();
+      if (!enabled) {
+        return res.status(500).json({ message: "Cloudinary not configured" });
+      }
+      if (!req.file?.buffer) {
+        return res.status(400).json({ message: "Image file is required" });
+      }
+
+      const folder = String(process.env.CLOUDINARY_FOLDER || "").trim();
+      const options = { resource_type: "image" };
+      if (folder) options.folder = folder;
+
+      const result = await uploadBufferToCloudinary(req.file.buffer, options);
+      const imageUrl = result?.secure_url || result?.url || "";
+      if (!imageUrl) {
+        return res.status(500).json({ message: "Upload failed" });
+      }
+
+      const me = await User.findById(req.user._id);
+      if (!me) return res.status(404).json({ message: "User not found" });
+      me.avatarUrl = String(imageUrl);
+      await me.save();
+
       return res.json({ user: publicMe(me) });
     } catch (e) {
       return next(e);

@@ -20,4 +20,19 @@ export const userService = {
     const res = await api.patch("/me/profile", { bio, avatar, avatarUrl });
     return res.data?.user || null;
   },
+
+  uploadAvatar: async (file) => {
+    const form = new FormData();
+    form.append("file", {
+      uri: file.uri,
+      name: file.name,
+      type: file.type,
+    });
+
+    const res = await api.post("/me/avatar", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    return res.data?.user || null;
+  },
 };

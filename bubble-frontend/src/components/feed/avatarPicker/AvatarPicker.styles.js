@@ -87,14 +87,25 @@ export const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     padding: theme.spacing.md,
     borderRadius: theme.borderRadius.lg,
+    marginBottom: theme.spacing.lg,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: theme.spacing.md,
+  },
+  pickButtonRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pickButtonIcon: {
+    marginRight: theme.spacing.sm,
   },
   pickButtonText: {
     fontSize: theme.typography.fontSize.md,
     fontFamily: theme.typography.fontFamily.semiBold,
     color: theme.colors.text,
+  },
+  pickButtonDisabled: {
+    opacity: 0.6,
   },
   confirmButton: {
     backgroundColor: theme.colors.primary,
