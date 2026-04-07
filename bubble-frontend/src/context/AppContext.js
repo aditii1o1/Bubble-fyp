@@ -285,9 +285,9 @@ export function AppProvider({ children }) {
       try {
         const cached = await cacheService.getUser();
         if (!alive || !cached) return;
-        dispatch(appActions.setUser({ email: cached.email, uid: cached.uid }));
         dispatch(appActions.setProfile(cached));
-        dispatch(appActions.setRole(isAdminEmail(cached.email) ? "admin" : "user"));
+        dispatch(appActions.setRole(cached.role || (isAdminEmail(cached.email) ? "admin" : "user")));
+        dispatch(appActions.setUser({ email: cached.email, uid: cached.uid }));
       } catch (e) {
         // ignore cache errors (keep app usable)
       }
@@ -311,9 +311,9 @@ export function AppProvider({ children }) {
           avatarUrl: me.avatarUrl || null,
         };
 
-        dispatch(appActions.setUser({ uid: profile.uid, email: profile.email }));
         dispatch(appActions.setRole(profile.role || (isAdminEmail(profile.email) ? "admin" : "user")));
         dispatch(appActions.setProfile(profile));
+        dispatch(appActions.setUser({ uid: profile.uid, email: profile.email }));
         await cacheService.saveUser(profile);
       } catch {
         // ignore (offline)

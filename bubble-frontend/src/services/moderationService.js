@@ -22,6 +22,25 @@ function normalizeTextForMatch(text) {
     .trim();
 }
 
+function findBlockedWord(text, words) {
+  const t = normalizeTextForMatch(text);
+  if (!t) return null;
+
+  for (const w of words) {
+    const bw = normalizeTextForMatch(w);
+    if (!bw) continue;
+
+    if (!bw.includes(" ")) {
+      const parts = t.split(" ");
+      if (parts.includes(bw)) return w;
+    } else if (t.includes(bw)) {
+      return w;
+    }
+  }
+
+  return null;
+}
+
 export const moderationService = {
   getBlockedWords: async () => {
     // Firestore first
@@ -60,22 +79,18 @@ export const moderationService = {
   },
 
   checkText: async (text) => {
-    const t = normalizeTextForMatch(text);
-    if (!t) return { ok: true };
-
     const words = await moderationService.getBlockedWords();
-    for (const w of words) {
-      const bw = normalizeTextForMatch(w);
-      if (!bw) continue;
+    const blockedWord = findBlockedWord(text, words);
+    if (blockedWord) return { ok: false, word: blockedWord };
+    return { ok: true };
+  },
 
-      // If it's a single token, do a word-boundary style match.
-      // For phrases, fallback to substring match in normalized text.
-      if (!bw.includes(" ")) {
-        const parts = t.split(" ");
-        if (parts.includes(bw)) return { ok: false, word: w };
-      } else if (t.includes(bw)) {
-        return { ok: false, word: w };
-      }
+  checkTexts: async (entries = []) => {
+    const words = await moderationService.getBlockedWords();
+    for (const entry of Array.isArray(entries) ? entries : []) {
+      const field = String(entry?.field || "").trim();
+      const blockedWord = findBlockedWord(entry?.text, words);
+      if (blockedWord) return { ok: false, field, word: blockedWord };
     }
     return { ok: true };
   },

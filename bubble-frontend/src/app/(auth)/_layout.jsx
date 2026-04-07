@@ -1,6 +1,21 @@
-import { Stack } from "expo-router";
+import { Redirect, Stack } from "expo-router";
+import { useAppContext } from "../../context/AppContext";
+import { getAuthenticatedHref } from "../../utils/authRedirect";
 
 export default function AuthLayout() {
+  const { state } = useAppContext();
+
+  if (state.user) {
+    return (
+      <Redirect
+        href={getAuthenticatedHref({
+          role: state.role,
+          onboarded: state.profile?.onboarded,
+        })}
+      />
+    );
+  }
+
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Login" />

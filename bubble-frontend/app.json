@@ -1,6 +1,6 @@
 {
   "expo": {
-    "scheme": "Bubble",
+    "scheme": "bubble",
     "name": "Bubble",
     "slug": "Bubble",
     "version": "1.0.0",
@@ -27,14 +27,21 @@
           "action": "VIEW",
           "data": [
             {
-              "scheme": "Bubble",
+              "scheme": "bubble",
               "host": "donate",
               "pathPrefix": "/result"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
-      ]
+      ],
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.aditibubble.bubble"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -47,6 +54,17 @@
           "photosPermission": "Allow Bubble to access your photos so you can set a profile picture."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "apiUrl": "https://bubble-fyp.onrender.com/api",
+      "khaltiPublicKey": "",
+      "khaltiEnv": "TEST",
+      "backendPublicUrl": "https://bubble-fyp.onrender.com",
+      "appDeeplinkUrl": "bubble://",
+      "router": {},
+      "eas": {
+        "projectId": "6f3c5f83-0dfc-4333-aa34-6dee4fa27826"
+      }
+    }
   }
 }

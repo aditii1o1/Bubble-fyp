@@ -11,9 +11,9 @@ import { loginSchema } from "../../utils/validationSchemas";
 import { appActions, useAppContext } from "../../context/AppContext";
 import { styles } from "../../screens/auth/Login.styles";
 import { authService } from "../../services/authService";
-import { isAdminEmail } from "../../config/admin";
 import { getAuthErrorMessage } from "../../utils/authError";
 import { useToast } from "../../context/ToastContext";
+import { getAuthenticatedHref } from "../../utils/authRedirect";
 
 export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
@@ -45,23 +45,22 @@ export default function LoginScreen() {
       const password = String(data.password || "");
 
       const result = await authService.login(email, password);
+      const role = result?.profile?.role || "user";
 
+      dispatch(appActions.setProfile(result.profile));
       dispatch(
         appActions.login(
           { email, uid: result?.user?.uid },
-          isAdminEmail(email) ? "admin" : "user",
+          role,
         ),
       );
-      dispatch(appActions.setProfile(result.profile));
-
-      if (isAdminEmail(email)) {
-        showToast("Welcome Admin!", { type: "success" });
-        router.replace("/(admin)");
-        return;
-      }
-
       showToast("Signed in!", { type: "success" });
-      router.replace("/(tabs)/Home");
+      router.replace(
+        getAuthenticatedHref({
+          role,
+          onboarded: result?.profile?.onboarded,
+        }),
+      );
     } catch (error) {
       showToast(getAuthErrorMessage(error), { type: "error" });
     } finally {

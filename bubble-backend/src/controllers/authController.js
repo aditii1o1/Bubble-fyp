@@ -67,6 +67,12 @@ function getAppDeepLink() {
   return (process.env.APP_DEEPLINK_URL || "Bubble://").trim();
 }
 
+function isEmailVerificationRequired() {
+  const raw = String(process.env.REQUIRE_EMAIL_VERIFICATION || "").trim().toLowerCase();
+  if (!raw) return true;
+  return !["0", "false", "no", "off"].includes(raw);
+}
+
 function buildLinkListText(urls, pathWithQuery) {
   const list = urls.map((base) => `${base}${pathWithQuery}`);
   if (list.length <= 1) return list[0] || "";
@@ -256,9 +262,12 @@ const authController = {
 
       const passwordHash = await bcrypt.hash(password, 10);
 
-      const verifyToken = randomToken(32);
-      const verifyTokenHash = sha256(verifyToken);
-      const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
+      const requireEmailVerification = isEmailVerificationRequired();
+      const verifyToken = requireEmailVerification ? randomToken(32) : "";
+      const verifyTokenHash = requireEmailVerification ? sha256(verifyToken) : null;
+      const expiresAt = requireEmailVerification
+        ? new Date(Date.now() + 1000 * 60 * 60 * 24)
+        : null;
 
       const adminEmails = getAdminEmails();
       const role = adminEmails.includes(email) ? "admin" : "user";
@@ -267,7 +276,7 @@ const authController = {
         email,
         passwordHash,
         role,
-        emailVerified: false,
+        emailVerified: !requireEmailVerification,
         verifyEmailTokenHash: verifyTokenHash,
         verifyEmailTokenExpiresAt: expiresAt,
         onboarded: false,
@@ -278,31 +287,43 @@ const authController = {
         avatarUrl: null
       });
 
-      const backendUrls = getBackendUrls(req);
-      const verifyPath = `/api/auth/verify-email?token=${verifyToken}`;
-      const chosenBaseUrls = backendUrls.length ? backendUrls : [getBackendUrl()];
-      const verifyLinkText = buildLinkListText(chosenBaseUrls, verifyPath);
-      const verifyLinkHtml = buildLinksForHtml(chosenBaseUrls, verifyPath);
-      await sendMail({
-        to: email,
-        subject: "Verify your Bubble email",
-        text: bubbleEmailText({
-          title: "Verify your email",
-          subtitle: "Welcome to Bubble. Verify your email to start posting.",
-          buttonUrl: verifyLinkText,
-          footer: "This link expires in 24 hours."
-        }),
-        html: bubbleEmailHtml({
-          title: "Verify your email",
-          subtitle: "Welcome to Bubble. Tap below to verify your email and start posting.",
-          buttonText: "Verify Email",
-          buttonUrl: verifyLinkHtml.primary,
-          links: verifyLinkHtml.links,
-          footer: "This link expires in 24 hours."
-        }),
-      });
+      if (requireEmailVerification) {
+        const backendUrls = getBackendUrls(req);
+        const verifyPath = `/api/auth/verify-email?token=${verifyToken}`;
+        const chosenBaseUrls = backendUrls.length ? backendUrls : [getBackendUrl()];
+        const verifyLinkText = buildLinkListText(chosenBaseUrls, verifyPath);
+        const verifyLinkHtml = buildLinksForHtml(chosenBaseUrls, verifyPath);
+        await sendMail({
+          to: email,
+          subject: "Verify your Bubble email",
+          text: bubbleEmailText({
+            title: "Verify your email",
+            subtitle: "Welcome to Bubble. Verify your email to start posting.",
+            buttonUrl: verifyLinkText,
+            footer: "This link expires in 24 hours."
+          }),
+          html: bubbleEmailHtml({
+            title: "Verify your email",
+            subtitle: "Welcome to Bubble. Tap below to verify your email and start posting.",
+            buttonText: "Verify Email",
+            buttonUrl: verifyLinkHtml.primary,
+            links: verifyLinkHtml.links,
+            footer: "This link expires in 24 hours."
+          }),
+        });
 
-      return res.status(201).json({ user: toUserResponse(user) });
+        return res.status(201).json({
+          user: toUserResponse(user),
+          needsVerification: true,
+        });
+      }
+
+      const tokens = await issueTokens(user);
+      return res.status(201).json({
+        user: toUserResponse(user),
+        needsVerification: false,
+        ...tokens,
+      });
     } catch (e) {
       return next(e);
     }
@@ -357,7 +378,7 @@ const authController = {
       const ok = await bcrypt.compare(password, userDoc.passwordHash);
       if (!ok) return res.status(400).json({ message: "Wrong email or password" });
 
-      if (!userDoc.emailVerified) {
+      if (isEmailVerificationRequired() && !userDoc.emailVerified) {
         return res.status(403).json({ message: "Email not verified. Please verify your email first." });
       }
 

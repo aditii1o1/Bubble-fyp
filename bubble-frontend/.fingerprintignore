@@ -1,0 +1,13 @@
+# Local Expo and Gradle caches can hold active lock files on Windows.
+.expo
+.expo/**/*
+dist
+dist/**/*
+.gradle-local
+.gradle-local/**/*
+.gradle-local-*
+.gradle-local-*/**/*
+android/.gradle-local
+android/.gradle-local/**/*
+android/.gradle-local-*
+android/.gradle-local-*/**/*

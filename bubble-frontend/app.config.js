@@ -28,7 +28,7 @@ module.exports = ({ config }) => {
       backendPublicUrl: String(
         process.env.BACKEND_PUBLIC_URL || process.env.BACKEND_PUBLIC_URLS || extra.backendPublicUrl || ""
       ).trim(),
-      appDeeplinkUrl: String(process.env.APP_DEEPLINK_URL || extra.appDeeplinkUrl || "Bubble://").trim(),
+      appDeeplinkUrl: String(process.env.APP_DEEPLINK_URL || extra.appDeeplinkUrl || "bubble://").trim(),
     },
   };
 };

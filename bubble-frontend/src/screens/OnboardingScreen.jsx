@@ -67,11 +67,21 @@ export default function OnboardingScreen() {
         const desiredUsername = String(username || "").trim().toLowerCase();
         const cleanBio = String(bio || "").trim();
 
+        if (!isEditing && !/^[a-z0-9_]{3,20}$/.test(desiredUsername)) {
+          showToast("Use 3-20 letters/numbers/underscore only.", { type: "error" });
+          return;
+        }
+
         setIsSaving(true);
 
-        const bioCheck = await moderationService.checkText(cleanBio);
-        if (!bioCheck.ok) {
-          showToast(`This word is blocked: "${bioCheck.word}"`, { type: "error" });
+        const moderationChecks = [{ field: "bio", text: cleanBio }];
+        if (!isEditing) {
+          moderationChecks.push({ field: "username", text: desiredUsername });
+        }
+
+        const moderationResult = await moderationService.checkTexts(moderationChecks);
+        if (!moderationResult.ok) {
+          showToast(`This word is blocked: "${moderationResult.word}"`, { type: "error" });
           return;
         }
 
@@ -84,17 +94,6 @@ export default function OnboardingScreen() {
             avatarUrl,
           });
         } else {
-          if (!/^[a-z0-9_]{3,20}$/.test(desiredUsername)) {
-            showToast("Use 3-20 letters/numbers/underscore only.", { type: "error" });
-            return;
-          }
-
-          const uCheck = await moderationService.checkText(desiredUsername);
-          if (!uCheck.ok) {
-            showToast(`This word is blocked: "${uCheck.word}"`, { type: "error" });
-            return;
-          }
-
           me = await userService.completeOnboarding({
             username: desiredUsername,
             bio: cleanBio,
@@ -121,15 +120,14 @@ export default function OnboardingScreen() {
         dispatch(appActions.setProfile(updates));
         dispatch(appActions.setRole(updates.role));
         dispatch(appActions.setUser({ uid: updates.uid, email: updates.email }));
-        try {
-          await postService.updateUserPostsAuthor(uid, updates);
-        } catch {
-          // ignore
-        }
-        await cacheService.saveUser(updates);
 
         showToast(isEditing ? "Profile updated!" : "Profile saved!", { type: "success" });
         router.replace(updates.role === "admin" ? "/(admin)" : "/(tabs)/Home");
+
+        Promise.allSettled([
+          postService.updateUserPostsAuthor(uid, updates),
+          cacheService.saveUser(updates),
+        ]);
       } catch (e) {
         showToast(e?.message || "Could not save profile. Try again.", { type: "error" });
       } finally {

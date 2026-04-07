@@ -11,15 +11,54 @@ function friendlyAuthError(err) {
 
 export const authService = {
   signup: async ({ email, password } = {}) => {
+    const normalizedEmail = String(email || "").trim().toLowerCase();
     try {
-      await api.post("/auth/register", {
-        email: String(email || "").trim().toLowerCase(),
+      const res = await api.post("/auth/register", {
+        email: normalizedEmail,
         password: String(password || ""),
       });
+
+      const user = res.data?.user || null;
+      const accessToken = String(res.data?.accessToken || "");
+      const refreshToken = String(res.data?.refreshToken || "");
+      const needsVerification = res.data?.needsVerification !== false;
+
+      if (user && accessToken && refreshToken) {
+        const profile = {
+          uid: user.id,
+          email: user.email,
+          role: user.role,
+          banned: !!user.banned,
+          onboarded: !!user.onboarded,
+          username: user.username || "",
+          nickname: user.nickname || "@anonymous",
+          bio: user.bio || "",
+          avatar: user.avatar || "cat",
+          avatarUrl: user.avatarUrl || null,
+        };
+
+        await Promise.all([
+          cacheService.saveToken(accessToken),
+          cacheService.saveRefreshToken(refreshToken),
+          cacheService.saveUser(profile),
+        ]);
+
+        return {
+          needsVerification: false,
+          autoSignedIn: true,
+          user: { uid: profile.uid, email: profile.email },
+          token: accessToken,
+          profile,
+        };
+      }
+
+      return {
+        needsVerification,
+        email: normalizedEmail,
+      };
     } catch (e) {
       throw new Error(friendlyAuthError(e));
     }
-    return { needsVerification: true, email: String(email || "").trim().toLowerCase() };
   },
 
   login: async (email, password) => {

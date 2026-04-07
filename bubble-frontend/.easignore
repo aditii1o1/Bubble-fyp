@@ -1,0 +1,16 @@
+# Local dependency and build caches
+node_modules/
+.expo/
+dist/
+.gradle/
+.gradle-local/
+.gradle-local-*/
+android/.gradle/
+android/.gradle-local/
+android/.gradle-local-*/
+
+# Local debug artifacts
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*

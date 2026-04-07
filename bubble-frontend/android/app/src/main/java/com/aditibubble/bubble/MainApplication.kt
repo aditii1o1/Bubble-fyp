@@ -1,4 +1,4 @@
-package com.bubble.fyp
+package com.aditibubble.bubble
 
 import android.app.Application
 import android.content.res.Configuration

@@ -56,9 +56,6 @@ const meController = {
       if (!isValidUsername(desired))
         return res.status(400).json({ message: "Use 3-20 letters/numbers/underscore only." });
 
-      const exists = await User.findOne({ username: desired }).lean();
-      if (exists) return res.status(400).json({ message: "That username is taken." });
-
       me.username = desired;
       me.usernameSet = true;
       me.nickname = `@${desired}`;
