@@ -8,15 +8,18 @@ import AuthLayout from "../../components/common/AuthLayout";
 import ControlledInput from "../../components/common/ControlledInput";
 import CustomButton from "../../components/common/CustomButton";
 import { signupSchema } from "../../utils/validationSchemas";
+import { appActions, useAppContext } from "../../context/AppContext";
 import { styles } from "../../screens/auth/Signup.styles";
 import { authService } from "../../services/authService";
 import { getAuthErrorMessage } from "../../utils/authError";
 import { useToast } from "../../context/ToastContext";
+import { getAuthenticatedHref } from "../../utils/authRedirect";
 
 export default function SignupScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const { dispatch } = useAppContext();
   const { showToast } = useToast();
 
   const emailRef = useRef(null);
@@ -44,7 +47,26 @@ export default function SignupScreen() {
       const email = String(data.email || "").trim().toLowerCase();
       const password = String(data.password || "");
 
-      await authService.signup({ email, password });
+      const result = await authService.signup({ email, password });
+
+      if (result?.autoSignedIn && result?.profile) {
+        dispatch(appActions.setProfile(result.profile));
+        dispatch(
+          appActions.login(
+            { email: result.profile.email, uid: result.user?.uid },
+            result.profile.role || "user",
+          ),
+        );
+        showToast("Account created!", { type: "success" });
+        router.replace(
+          getAuthenticatedHref({
+            role: result.profile.role,
+            onboarded: result.profile.onboarded,
+          }),
+        );
+        return;
+      }
+
       showToast("Account created. Verify your email, then sign in.", { type: "success" });
       router.replace("/(auth)/Login");
     } catch (error) {

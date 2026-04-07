@@ -1,7 +1,37 @@
 import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
 let cachedTransporter = null;
 let cachedKey = "";
+let cachedResendClient = null;
+let cachedResendKey = "";
+
+function getResendConfig() {
+  const apiKey = (process.env.RESEND_API_KEY || "").trim();
+  const from = (process.env.RESEND_FROM || "").trim();
+  const replyTo = (process.env.RESEND_REPLY_TO || "").trim();
+
+  if (!apiKey || !from) return { key: "", config: null };
+  return {
+    key: `resend:${apiKey}`,
+    config: {
+      apiKey,
+      from,
+      replyTo
+    }
+  };
+}
+
+function getResendClient() {
+  const { key, config } = getResendConfig();
+  if (!config) return null;
+
+  if (cachedResendClient && cachedResendKey === key) return cachedResendClient;
+
+  cachedResendKey = key;
+  cachedResendClient = new Resend(config.apiKey);
+  return cachedResendClient;
+}
 
 function getTransportConfig() {
   const emailUser = (process.env.EMAIL_USER || "").trim();
@@ -35,6 +65,44 @@ function getTransporter() {
   cachedKey = key;
   cachedTransporter = nodemailer.createTransport(config);
   return cachedTransporter;
+}
+
+function getMailFrom() {
+  return (
+    (process.env.SMTP_FROM || "").trim() ||
+    (process.env.EMAIL_FROM || "").trim() ||
+    (process.env.EMAIL_USER || "").trim() ||
+    (process.env.SMTP_USER || "").trim()
+  );
+}
+
+async function sendWithResend({ to, subject, html, text }) {
+  const client = getResendClient();
+  const resendConfig = getResendConfig().config;
+  if (!client || !resendConfig) return false;
+
+  const payload = {
+    from: resendConfig.from,
+    to,
+    subject,
+    ...(text ? { text } : {}),
+    ...(html ? { html } : {})
+  };
+  if (resendConfig.replyTo) {
+    payload.replyTo = resendConfig.replyTo;
+  }
+
+  try {
+    const result = await client.emails.send(payload);
+    if (result?.error) {
+      console.warn("Resend send failed:", result.error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn("Resend send failed:", err?.message || err);
+    return false;
+  }
 }
 
 function escapeHtml(text) {
@@ -209,23 +277,6 @@ function bubbleEmailText({ title, subtitle, buttonUrl, footer }) {
 }
 
 async function sendMail({ to, subject, html, text }) {
-  const transporter = getTransporter();
-  if (!transporter) {
-    const hasGmail =
-      (process.env.EMAIL_USER || "").trim() && (process.env.EMAIL_PASSWORD || "").trim();
-    const hasSmtp =
-      (process.env.SMTP_HOST || "").trim() &&
-      (process.env.SMTP_USER || "").trim() &&
-      (process.env.SMTP_PASS || "").trim();
-
-    const hint = hasGmail || hasSmtp
-      ? "Email not configured."
-      : "Set EMAIL_USER + EMAIL_PASSWORD (Gmail App Password) or SMTP_HOST + SMTP_USER + SMTP_PASS.";
-
-    console.warn(`${hint} Skipping email:`, subject);
-    return false;
-  }
-
   const resolvedHtml = typeof html === "string" && html.trim() ? html : undefined;
   const resolvedText = typeof text === "string" && text.trim() ? text : undefined;
 
@@ -233,19 +284,41 @@ async function sendMail({ to, subject, html, text }) {
     throw new Error("sendMail requires `text` and/or `html`");
   }
 
-  await transporter.sendMail({
-    from:
-      process.env.SMTP_FROM ||
-      process.env.EMAIL_FROM ||
-      process.env.EMAIL_USER ||
-      process.env.SMTP_USER ||
-      "",
+  const sentWithResend = await sendWithResend({
     to,
     subject,
-    ...(resolvedText ? { text: resolvedText } : {}),
-    ...(resolvedHtml ? { html: resolvedHtml } : {})
+    html: resolvedHtml,
+    text: resolvedText
   });
-  return true;
+  if (sentWithResend) return true;
+
+  const transporter = getTransporter();
+  if (transporter) {
+    await transporter.sendMail({
+      from: getMailFrom(),
+      to,
+      subject,
+      ...(resolvedText ? { text: resolvedText } : {}),
+      ...(resolvedHtml ? { html: resolvedHtml } : {})
+    });
+    return true;
+  }
+
+  const hasResend =
+    (process.env.RESEND_API_KEY || "").trim() && (process.env.RESEND_FROM || "").trim();
+  const hasGmail =
+    (process.env.EMAIL_USER || "").trim() && (process.env.EMAIL_PASSWORD || "").trim();
+  const hasSmtp =
+    (process.env.SMTP_HOST || "").trim() &&
+    (process.env.SMTP_USER || "").trim() &&
+    (process.env.SMTP_PASS || "").trim();
+
+  const hint = hasResend || hasGmail || hasSmtp
+    ? "Email provider unavailable."
+    : "Set RESEND_API_KEY + RESEND_FROM, or EMAIL_USER + EMAIL_PASSWORD, or SMTP_HOST + SMTP_USER + SMTP_PASS.";
+
+  console.warn(`${hint} Skipping email:`, subject);
+  return false;
 }
 
 export { sendMail, bubbleEmailHtml, bubbleEmailText };

@@ -3,10 +3,10 @@ import { StyleSheet } from "react-native";
 
 export const theme = {
   colors: {
-    primary: "#FF8FAB",
-    primaryPink: "#FF8FAB",
-    secondary: "#FFC2D1",
-    secondaryPink: "#FFC2D1",
+    primary: "#ED5E87",
+    primaryPink: "#EF3D6F",
+    secondary: "#EFB5C3",
+    secondaryPink: "#F2A2B6",
     background: "#FFF9F5",
     bgWhite: "#FFFFFF",
     bgCream: "#FFF9F5",
@@ -18,7 +18,7 @@ export const theme = {
     textDark: "#333333",
     muted: "#888888",
     textMuted: "#888888",
-    textLight: "#B0B0B0",
+    textLight: "#494848",
     buttonText: "#FFFFFF",
     border: "#E0E0E0",
     borderLight: "#E0E0E0",

@@ -25,13 +25,12 @@
         <action android:name="android.intent.action.VIEW"/>
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
-        <data android:scheme="Bubble"/>
+        <data android:scheme="bubble"/>
         <data android:scheme="exp+bubble"/>
       </intent-filter>
       <intent-filter data-generated="true">
         <action android:name="android.intent.action.VIEW"/>
-        <data android:scheme="Bubble" android:host="donate" android:pathPrefix="/result"/>
-        <data android:scheme="exp+bubble"/>
+        <data android:scheme="bubble" android:host="donate" android:pathPrefix="/result"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <category android:name="android.intent.category.DEFAULT"/>
       </intent-filter>
