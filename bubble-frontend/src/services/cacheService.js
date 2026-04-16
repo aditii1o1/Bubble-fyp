@@ -8,6 +8,9 @@ export const KEYS = {
   USER_PREFS: "@user_preferences",
 };
 
+const AUTH_KEYS = [KEYS.AUTH_USER, KEYS.AUTH_TOKEN, KEYS.AUTH_REFRESH_TOKEN];
+const SESSION_KEYS = [...AUTH_KEYS, KEYS.RECENT_POSTS];
+
 async function setJson(key, value) {
   await AsyncStorage.setItem(key, JSON.stringify(value));
 }
@@ -40,6 +43,7 @@ export const cacheService = {
   getPrefs: async () => getJson(KEYS.USER_PREFS),
 
   clearAll: async () => AsyncStorage.multiRemove(Object.values(KEYS)),
-  clearAuth: async () =>
-    AsyncStorage.multiRemove([KEYS.AUTH_USER, KEYS.AUTH_TOKEN, KEYS.AUTH_REFRESH_TOKEN]),
+  clearAuth: async () => AsyncStorage.multiRemove(AUTH_KEYS),
+  clearSession: async () => AsyncStorage.multiRemove(SESSION_KEYS),
+  clearFeedCache: async () => AsyncStorage.removeItem(KEYS.RECENT_POSTS),
 };

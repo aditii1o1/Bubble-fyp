@@ -1,7 +1,11 @@
-import { api } from "./apiClient";
+import { apiClient } from "./apiClient";
 import { cacheService } from "./cacheService";
 
 function friendlyAuthError(err) {
+  if (err?.code === "ECONNABORTED") {
+    return "Request timed out. Check your connection and try again.";
+  }
+
   const msg =
     String(err?.response?.data?.message || "") ||
     String(err?.message || "") ||
@@ -9,11 +13,26 @@ function friendlyAuthError(err) {
   return msg;
 }
 
+function toProfile(user) {
+  return {
+    uid: user.id,
+    email: user.email,
+    role: user.role,
+    banned: !!user.banned,
+    onboarded: !!user.onboarded,
+    username: user.username || "",
+    nickname: user.nickname || "@anonymous",
+    bio: user.bio || "",
+    avatar: user.avatar || "cat",
+    avatarUrl: user.avatarUrl || null,
+  };
+}
+
 export const authService = {
   signup: async ({ email, password } = {}) => {
     const normalizedEmail = String(email || "").trim().toLowerCase();
     try {
-      const res = await api.post("/auth/register", {
+      const res = await apiClient.post("/auth/register", {
         email: normalizedEmail,
         password: String(password || ""),
       });
@@ -24,18 +43,7 @@ export const authService = {
       const needsVerification = res.data?.needsVerification !== false;
 
       if (user && accessToken && refreshToken) {
-        const profile = {
-          uid: user.id,
-          email: user.email,
-          role: user.role,
-          banned: !!user.banned,
-          onboarded: !!user.onboarded,
-          username: user.username || "",
-          nickname: user.nickname || "@anonymous",
-          bio: user.bio || "",
-          avatar: user.avatar || "cat",
-          avatarUrl: user.avatarUrl || null,
-        };
+        const profile = toProfile(user);
 
         await Promise.all([
           cacheService.saveToken(accessToken),
@@ -63,7 +71,7 @@ export const authService = {
 
   login: async (email, password) => {
     try {
-      const res = await api.post("/auth/login", {
+      const res = await apiClient.post("/auth/login", {
         email: String(email || "").trim().toLowerCase(),
         password: String(password || ""),
       });
@@ -73,18 +81,7 @@ export const authService = {
       const refreshToken = String(res.data?.refreshToken || "");
       if (!user || !accessToken || !refreshToken) throw new Error("Login failed");
 
-      const profile = {
-        uid: user.id,
-        email: user.email,
-        role: user.role,
-        banned: !!user.banned,
-        onboarded: !!user.onboarded,
-        username: user.username || "",
-        nickname: user.nickname || "@anonymous",
-        bio: user.bio || "",
-        avatar: user.avatar || "cat",
-        avatarUrl: user.avatarUrl || null,
-      };
+      const profile = toProfile(user);
 
       await Promise.all([
         cacheService.saveToken(accessToken),
@@ -99,21 +96,24 @@ export const authService = {
   },
 
   logout: async () => {
+    const refreshToken = await cacheService.getRefreshToken();
     try {
-      const refreshToken = await cacheService.getRefreshToken();
-      try {
-        await api.post("/auth/logout", { refreshToken });
-      } catch {
-        // ignore
-      }
+      await cacheService.clearAuth();
     } finally {
-      await cacheService.clearAll();
+      cacheService.clearFeedCache().catch(() => {
+        // ignore cache cleanup failures after local logout
+      });
+      if (refreshToken) {
+        apiClient.post("/auth/logout", { refreshToken }).catch(() => {
+          // ignore revoke failures after local logout
+        });
+      }
     }
   },
 
   resetPassword: async (email) => {
     try {
-      await api.post("/auth/request-password-reset", {
+      await apiClient.post("/auth/request-password-reset", {
         email: String(email || "").trim().toLowerCase(),
       });
       return true;

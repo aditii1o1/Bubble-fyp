@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { theme } from "../../constants/themes";
+import { appActions, useAppContext } from "../../context/AppContext";
 import { commonStyles } from "../../styles/commonStyles";
 import { confirmAlert } from "../../utils/alertUtils";
 import EmptyState from "../../components/common/EmptyState";
@@ -52,6 +53,7 @@ function getDonorName(donation) {
 }
 
 export default function AdminDonationsScreen() {
+  const { dispatch } = useAppContext();
   const [query, setQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [donations, setDonations] = useState([]);
@@ -93,6 +95,7 @@ export default function AdminDonationsScreen() {
       onConfirm: () => {
         (async () => {
           try {
+            dispatch(appActions.logout());
             await authService.logout();
           } finally {
             router.replace("/(auth)/Login");
@@ -100,7 +103,7 @@ export default function AdminDonationsScreen() {
         })();
       },
     });
-  }, []);
+  }, [dispatch]);
 
   const filteredDonations = useMemo(() => {
     const q = query.trim().toLowerCase();

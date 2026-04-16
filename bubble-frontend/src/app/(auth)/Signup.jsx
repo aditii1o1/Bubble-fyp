@@ -19,6 +19,7 @@ export default function SignupScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const submitLockRef = useRef(false);
   const { dispatch } = useAppContext();
   const { showToast } = useToast();
 
@@ -42,7 +43,10 @@ export default function SignupScreen() {
   });
 
   const onSubmit = async (data) => {
+    if (submitLockRef.current) return;
+
     try {
+      submitLockRef.current = true;
       setIsLoading(true);
       const email = String(data.email || "").trim().toLowerCase();
       const password = String(data.password || "");
@@ -72,6 +76,7 @@ export default function SignupScreen() {
     } catch (error) {
       showToast(getAuthErrorMessage(error), { type: "error" });
     } finally {
+      submitLockRef.current = false;
       setIsLoading(false);
     }
   };

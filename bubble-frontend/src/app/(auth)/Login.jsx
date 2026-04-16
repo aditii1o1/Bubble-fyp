@@ -18,6 +18,7 @@ import { getAuthenticatedHref } from "../../utils/authRedirect";
 export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const submitLockRef = useRef(false);
   const passwordRef = useRef(null);
   const { dispatch } = useAppContext();
   const { showToast } = useToast();
@@ -33,11 +34,14 @@ export default function LoginScreen() {
       email: "",
       password: "",
     },
-    mode: "onChange",
+    mode: "onBlur",
   });
 
   const onSubmit = async (data) => {
+    if (submitLockRef.current) return;
+
     try {
+      submitLockRef.current = true;
       setIsLoading(true);
       const email = String(data.email || "")
         .trim()
@@ -64,6 +68,7 @@ export default function LoginScreen() {
     } catch (error) {
       showToast(getAuthErrorMessage(error), { type: "error" });
     } finally {
+      submitLockRef.current = false;
       setIsLoading(false);
     }
   };

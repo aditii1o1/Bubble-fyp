@@ -3,7 +3,6 @@ import { cacheService } from "../services/cacheService";
 import { isAdminEmail } from "../config/admin";
 import { userService } from "../services/userService";
 import { notificationService } from "../services/notificationService";
-import { authService } from "../services/authService";
 
 const AppContext = createContext(null);
 
@@ -277,8 +276,6 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     let alive = true;
-    let notifTimer = null;
-    let authTimer = null;
 
     // Cache preload
     (async () => {
@@ -293,8 +290,11 @@ export function AppProvider({ children }) {
       }
     })();
 
-    const hydrate = async () => {
+    (async () => {
       try {
+        const token = await cacheService.getToken();
+        if (!alive || !token) return;
+
         const me = await userService.getMe();
         if (!alive || !me) return;
 
@@ -318,38 +318,48 @@ export function AppProvider({ children }) {
       } catch {
         // ignore (offline)
       }
-    };
+    })();
 
-    hydrate();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    let authTimer = null;
+    let notifTimer = null;
 
     authTimer = setInterval(async () => {
       try {
         if (!alive) return;
-        const t = await cacheService.getToken();
-        if (!t && state.user) dispatch(appActions.logout());
+        const token = await cacheService.getToken();
+        if (!token && state.user) dispatch(appActions.logout());
       } catch {
         // ignore
       }
     }, 2000);
 
-    notifTimer = setInterval(async () => {
-      try {
-        if (!alive) return;
-        const token = await cacheService.getToken();
-        if (!token) return;
-        const items = await notificationService.getMyNotifications(null, { pageSize: 30 });
-        dispatch(appActions.setNotifications(items));
-      } catch {
-        // ignore
-      }
-    }, 20000);
+    if (state.user?.uid) {
+      notifTimer = setInterval(async () => {
+        try {
+          if (!alive) return;
+          const token = await cacheService.getToken();
+          if (!token) return;
+          const items = await notificationService.getMyNotifications(null, { pageSize: 30 });
+          dispatch(appActions.setNotifications(items));
+        } catch {
+          // ignore
+        }
+      }, 20000);
+    }
 
     return () => {
       alive = false;
       if (authTimer) clearInterval(authTimer);
       if (notifTimer) clearInterval(notifTimer);
     };
-  }, [state.user]);
+  }, [dispatch, state.user?.uid]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
