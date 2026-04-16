@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { theme } from "../../constants/themes";
-import { useAppContext } from "../../context/AppContext";
+import { appActions, useAppContext } from "../../context/AppContext";
 import { commonStyles } from "../../styles/commonStyles";
 import { confirmAlert } from "../../utils/alertUtils";
 import EmptyState from "../../components/common/EmptyState";
@@ -15,7 +15,7 @@ import { adminService } from "../../services/adminService";
 import { authService } from "../../services/authService";
 
 export default function AdminReportsScreen() {
-  const { state } = useAppContext();
+  const { state, dispatch } = useAppContext();
 
   const [query, setQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -62,6 +62,7 @@ export default function AdminReportsScreen() {
       onConfirm: () => {
         (async () => {
           try {
+            dispatch(appActions.logout());
             await authService.logout();
           } finally {
             router.replace("/(auth)/Login");
@@ -69,7 +70,7 @@ export default function AdminReportsScreen() {
         })();
       },
     });
-  }, []);
+  }, [dispatch]);
 
   const openReports = useMemo(
     () => reports.filter((r) => r.status === "open"),

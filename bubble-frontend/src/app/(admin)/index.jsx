@@ -5,14 +5,14 @@ import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { theme } from "../../constants/themes";
-import { useAppContext } from "../../context/AppContext";
+import { appActions, useAppContext } from "../../context/AppContext";
 import { commonStyles } from "../../styles/commonStyles";
 import { confirmAlert } from "../../utils/alertUtils";
 import { authService } from "../../services/authService";
 import { adminService } from "../../services/adminService";
 
 export default function AdminDashboard() {
-  const { state } = useAppContext();
+  const { state, dispatch } = useAppContext();
   const [counts, setCounts] = useState({
     openReports: 0,
     users: 0,
@@ -47,6 +47,7 @@ export default function AdminDashboard() {
       onConfirm: () => {
         (async () => {
           try {
+            dispatch(appActions.logout());
             await authService.logout();
           } finally {
             router.replace("/(auth)/Login");
@@ -54,7 +55,7 @@ export default function AdminDashboard() {
         })();
       },
     });
-  }, []);
+  }, [dispatch]);
 
   return (
     <SafeAreaView style={commonStyles.screenPadded}>

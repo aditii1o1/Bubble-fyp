@@ -221,7 +221,7 @@ export default function ProfileScreen() {
 	    });
 	  };
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     confirmAlert({
       title: "Log Out",
       message: "Are you sure you want to log out?",
@@ -230,6 +230,7 @@ export default function ProfileScreen() {
       onConfirm: () => {
         (async () => {
           try {
+            dispatch(appActions.logout());
             await authService.logout();
           } finally {
             router.replace("/(auth)/Login");
@@ -237,7 +238,7 @@ export default function ProfileScreen() {
         })();
       },
     });
-  };
+  }, [dispatch]);
 
   const handleReport = () => setShowReportModal(true);
 

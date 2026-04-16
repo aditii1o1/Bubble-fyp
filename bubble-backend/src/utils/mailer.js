@@ -39,7 +39,13 @@ function getTransportConfig() {
   if (emailUser && emailPassword) {
     return {
       key: `gmail:${emailUser}`,
-      config: { service: "gmail", auth: { user: emailUser, pass: emailPassword } }
+      config: {
+        service: "gmail",
+        auth: { user: emailUser, pass: emailPassword },
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 10000,
+      }
     };
   }
 
@@ -52,7 +58,15 @@ function getTransportConfig() {
   if (!host || !user || !pass) return { key: "", config: null };
   return {
     key: `smtp:${host}:${port}:${secure}:${user}`,
-    config: { host, port, secure, auth: { user, pass } }
+    config: {
+      host,
+      port,
+      secure,
+      auth: { user, pass },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 10000,
+    }
   };
 }
 

@@ -3,7 +3,7 @@ import { FlatList, StatusBar, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { theme } from "../../../constants/themes";
-import { useAppContext } from "../../../context/AppContext";
+import { appActions, useAppContext } from "../../../context/AppContext";
 import { commonStyles } from "../../../styles/commonStyles";
 import { confirmAlert } from "../../../utils/alertUtils";
 import EmptyState from "../../../components/common/EmptyState";
@@ -35,7 +35,7 @@ function reportMatchesQuery(report, q, reporter, reportedUser) {
 }
 
 export default function ResolvedReportsScreen() {
-  const { state } = useAppContext();
+  const { state, dispatch } = useAppContext();
   const [query, setQuery] = useState("");
   const [reports, setReports] = useState([]);
 
@@ -64,6 +64,7 @@ export default function ResolvedReportsScreen() {
       onConfirm: () => {
         (async () => {
           try {
+            dispatch(appActions.logout());
             await authService.logout();
           } finally {
             router.replace("/(auth)/Login");
@@ -71,7 +72,7 @@ export default function ResolvedReportsScreen() {
         })();
       },
     });
-  }, []);
+  }, [dispatch]);
 
   const { filteredReports, counts } = useMemo(() => {
     const q = query.trim().toLowerCase();

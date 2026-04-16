@@ -2,12 +2,19 @@
 node_modules/
 .expo/
 dist/
+.kotlin/
 .gradle/
 .gradle-local/
 .gradle-local-*/
 android/.gradle/
 android/.gradle-local/
 android/.gradle-local-*/
+android/.kotlin/
+android/build/
+android/app/build/
+android/app/.cxx/
+android/local.properties/
+android/*.iml
 
 # Local debug artifacts
 *.log

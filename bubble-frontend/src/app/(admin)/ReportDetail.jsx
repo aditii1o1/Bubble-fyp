@@ -3,7 +3,7 @@ import { ScrollView, StatusBar, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { theme } from "../../constants/themes";
-import { useAppContext } from "../../context/AppContext";
+import { appActions, useAppContext } from "../../context/AppContext";
 import { commonStyles } from "../../styles/commonStyles";
 import { confirmAlert } from "../../utils/alertUtils";
 import EmptyState from "../../components/common/EmptyState";
@@ -21,7 +21,7 @@ import { useToast } from "../../context/ToastContext";
 
 export default function AdminReportDetailScreen() {
   const { reportId } = useLocalSearchParams();
-  const { state } = useAppContext();
+  const { state, dispatch } = useAppContext();
   const { showToast } = useToast();
   const [report, setReport] = useState(null);
   const [reporter, setReporter] = useState(null);
@@ -76,6 +76,7 @@ export default function AdminReportDetailScreen() {
       onConfirm: () => {
         (async () => {
           try {
+            dispatch(appActions.logout());
             await authService.logout();
           } finally {
             router.replace("/(auth)/Login");
@@ -83,7 +84,7 @@ export default function AdminReportDetailScreen() {
         })();
       },
     });
-  }, []);
+  }, [dispatch]);
 
   const onResolve = useCallback(() => {
     if (!report) return;

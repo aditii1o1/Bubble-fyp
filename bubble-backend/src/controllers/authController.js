@@ -89,6 +89,35 @@ function buildLinksForHtml(urls, pathWithQuery) {
   };
 }
 
+function sendVerificationEmailInBackground({ email, verifyToken, req }) {
+  const backendUrls = getBackendUrls(req);
+  const verifyPath = `/api/auth/verify-email?token=${verifyToken}`;
+  const chosenBaseUrls = backendUrls.length ? backendUrls : [getBackendUrl()];
+  const verifyLinkText = buildLinkListText(chosenBaseUrls, verifyPath);
+  const verifyLinkHtml = buildLinksForHtml(chosenBaseUrls, verifyPath);
+
+  void sendMail({
+    to: email,
+    subject: "Verify your Bubble email",
+    text: bubbleEmailText({
+      title: "Verify your email",
+      subtitle: "Welcome to Bubble. Verify your email to start posting.",
+      buttonUrl: verifyLinkText,
+      footer: "This link expires in 24 hours."
+    }),
+    html: bubbleEmailHtml({
+      title: "Verify your email",
+      subtitle: "Welcome to Bubble. Tap below to verify your email and start posting.",
+      buttonText: "Verify Email",
+      buttonUrl: verifyLinkHtml.primary,
+      links: verifyLinkHtml.links,
+      footer: "This link expires in 24 hours."
+    }),
+  }).catch((err) => {
+    console.warn("Failed to send verification email:", err?.message || err);
+  });
+}
+
 async function issueTokens(user) {
   const accessToken = signAccessToken(user._id);
   const refreshToken = signRefreshToken(user._id);
@@ -288,29 +317,7 @@ const authController = {
       });
 
       if (requireEmailVerification) {
-        const backendUrls = getBackendUrls(req);
-        const verifyPath = `/api/auth/verify-email?token=${verifyToken}`;
-        const chosenBaseUrls = backendUrls.length ? backendUrls : [getBackendUrl()];
-        const verifyLinkText = buildLinkListText(chosenBaseUrls, verifyPath);
-        const verifyLinkHtml = buildLinksForHtml(chosenBaseUrls, verifyPath);
-        await sendMail({
-          to: email,
-          subject: "Verify your Bubble email",
-          text: bubbleEmailText({
-            title: "Verify your email",
-            subtitle: "Welcome to Bubble. Verify your email to start posting.",
-            buttonUrl: verifyLinkText,
-            footer: "This link expires in 24 hours."
-          }),
-          html: bubbleEmailHtml({
-            title: "Verify your email",
-            subtitle: "Welcome to Bubble. Tap below to verify your email and start posting.",
-            buttonText: "Verify Email",
-            buttonUrl: verifyLinkHtml.primary,
-            links: verifyLinkHtml.links,
-            footer: "This link expires in 24 hours."
-          }),
-        });
+        sendVerificationEmailInBackground({ email, verifyToken, req });
 
         return res.status(201).json({
           user: toUserResponse(user),

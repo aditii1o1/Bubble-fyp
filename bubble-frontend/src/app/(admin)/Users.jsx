@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { theme } from "../../constants/themes";
-import { useAppContext } from "../../context/AppContext";
+import { appActions, useAppContext } from "../../context/AppContext";
 import { commonStyles } from "../../styles/commonStyles";
 import { confirmAlert } from "../../utils/alertUtils";
 import EmptyState from "../../components/common/EmptyState";
@@ -16,7 +16,7 @@ import { authService } from "../../services/authService";
 import { useToast } from "../../context/ToastContext";
 
 export default function AdminUsersScreen() {
-  const { state } = useAppContext();
+  const { state, dispatch } = useAppContext();
   const { showToast } = useToast();
 
   const [query, setQuery] = useState("");
@@ -69,6 +69,7 @@ export default function AdminUsersScreen() {
       onConfirm: () => {
         (async () => {
           try {
+            dispatch(appActions.logout());
             await authService.logout();
           } finally {
             router.replace("/(auth)/Login");
@@ -76,7 +77,7 @@ export default function AdminUsersScreen() {
         })();
       },
     });
-  }, []);
+  }, [dispatch]);
 
   const toggleBan = useCallback((userId) => {
     const user = users.find((u) => u.id === userId);
