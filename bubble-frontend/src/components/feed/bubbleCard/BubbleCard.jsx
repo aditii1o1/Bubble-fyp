@@ -26,6 +26,8 @@ export default function BubbleCard({ bubble, onReact, onViewProfile }) {
   const lastTapRef = useRef(0);
   const singleTapTimerRef = useRef(null);
   const heartAnim = useRef(new Animated.Value(0)).current;
+  const burstAnimRef = useRef(null);
+  const isMountedRef = useRef(true);
   const timeRemaining = formatTimeRemaining(bubble.expiresAt);
   const isExpiringSoon = timeRemaining?.hours < 3;
   const activeReaction = state.myReactions[bubble.id] || null;
@@ -36,18 +38,26 @@ export default function BubbleCard({ bubble, onReact, onViewProfile }) {
 
   useEffect(() => {
     return () => {
+      isMountedRef.current = false;
       if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
+      if (burstAnimRef.current) burstAnimRef.current.stop();
+      heartAnim.stopAnimation();
     };
-  }, []);
+  }, [heartAnim]);
 
   const showHeartBurst = () => {
+    if (burstAnimRef.current) burstAnimRef.current.stop();
     heartAnim.setValue(0);
-    Animated.timing(heartAnim, {
+    burstAnimRef.current = Animated.timing(heartAnim, {
       toValue: 1,
       duration: 420,
       useNativeDriver: true,
-    }).start(() => {
-      heartAnim.setValue(0);
+    });
+    burstAnimRef.current.start(({ finished }) => {
+      if (finished && isMountedRef.current) {
+        heartAnim.setValue(0);
+      }
+      burstAnimRef.current = null;
     });
   };
 
@@ -103,6 +113,7 @@ export default function BubbleCard({ bubble, onReact, onViewProfile }) {
             fromNickname: state.profile.nickname || "@someone",
             fromUserId: uid,
             postId: bubble.id,
+            eventKey: created?.id ? `repost:${created.id}` : `repost:${uid}:${bubble.id}`,
           });
         }
       } catch (e) {

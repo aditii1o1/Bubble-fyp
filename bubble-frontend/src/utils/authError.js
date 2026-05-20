@@ -1,9 +1,8 @@
-export function getAuthErrorMessage(error) {
-  const message =
-    String(error?.response?.data?.message || "") ||
-    String(error?.message || "") ||
-    "Something went wrong. Please try again.";
+import { getErrorMessage } from "./errorMessage";
 
-  return message;
+export function getAuthErrorMessage(error) {
+  return getErrorMessage(error, {
+    fallbackMessage: "Something went wrong. Please try again.",
+  });
 }
 

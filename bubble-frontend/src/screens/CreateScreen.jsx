@@ -22,6 +22,7 @@ import { TAGS } from "../constants/tags";
 import { useToast } from "../context/ToastContext";
 import { moderationService } from "../services/moderationService";
 import DismissKeyboard from "../components/common/DismissKeyboard";
+import { getErrorMessage, isNetworkLikeError, isTimeoutError } from "../utils/errorMessage";
 
 export default function CreateScreen() {
   const router = useRouter();
@@ -45,6 +46,10 @@ export default function CreateScreen() {
     return () => {
       alive = false;
     };
+  }, []);
+
+  useEffect(() => {
+    void moderationService.prefetchBlockedWords();
   }, []);
 
   const allTags = useMemo(() => {
@@ -164,6 +169,7 @@ export default function CreateScreen() {
             title: optimistic.title,
             text: optimistic.text,
             tags: optimistic.tags,
+            skipLocalModeration: true,
           });
           dispatch(appActions.replacePost(tempId, created));
           try {
@@ -174,12 +180,22 @@ export default function CreateScreen() {
           }
         } catch (e) {
           dispatch(appActions.deletePost(tempId));
-          showToast(e?.message || "Could not post. Try again.", { type: "error" });
+          if (isNetworkLikeError(e) || isTimeoutError(e)) {
+            showToast("Couldn't confirm your post was saved. Refresh to check if it went through.", {
+              type: "error",
+            });
+            return;
+          }
+          showToast(getErrorMessage(e, { fallbackMessage: "Could not post. Try again." }), {
+            type: "error",
+          });
         }
       })();
     } catch (e) {
       console.error("Create post error:", e);
-      showToast(e?.message || "Something went wrong", { type: "error" });
+      showToast(getErrorMessage(e, { fallbackMessage: "Something went wrong." }), {
+        type: "error",
+      });
     } finally {
       setIsSubmitting(false);
     }

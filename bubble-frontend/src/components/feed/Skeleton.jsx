@@ -8,7 +8,7 @@ const Skeleton = () => {
   const shimmerAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.loop(
+    const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(shimmerAnim, {
           toValue: 1,
@@ -21,7 +21,13 @@ const Skeleton = () => {
           useNativeDriver: true,
         }),
       ])
-    ).start();
+    );
+    loop.start();
+
+    return () => {
+      loop.stop();
+      shimmerAnim.stopAnimation();
+    };
   }, [shimmerAnim]);
 
   const translateX = shimmerAnim.interpolate({

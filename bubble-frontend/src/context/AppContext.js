@@ -1,21 +1,23 @@
-import React, { createContext, useContext, useEffect, useMemo, useReducer } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useReducer, useRef } from "react";
+import { AppState } from "react-native";
 import { cacheService } from "../services/cacheService";
 import { isAdminEmail } from "../config/admin";
 import { userService } from "../services/userService";
 import { notificationService } from "../services/notificationService";
+import { useToast } from "./ToastContext";
 
 const AppContext = createContext(null);
 
 const initialState = {
   user: null,
   role: null, // "user" | "admin"
-  isLoading: false,
+  isLoading: true,
   profile: {
     nickname: "",
     username: "",
     avatar: "cat",
     avatarUrl: null,
-    joinedDate: "Jan 2024",
+    createdAt: null,
     bio: "Just sharing thoughts and feelings in my bubble.",
     onboarded: null,
   },
@@ -27,6 +29,18 @@ const initialState = {
   notifications: [],
 };
 
+const loggedOutState = { ...initialState, isLoading: false };
+
+function getInAppNotificationMessage(notification) {
+  const actor = notification?.fromNickname || "Someone";
+  if (notification?.text) return notification.text;
+  if (notification?.type === "reaction") return `${actor} reacted to your bubble`;
+  if (notification?.type === "comment") return `${actor} commented on your bubble`;
+  if (notification?.type === "repost") return `${actor} reposted your bubble`;
+  if (notification?.type === "broadcast") return "New announcement from Bubble";
+  return "You have a new notification";
+}
+
 function appReducer(state, action) {
   switch (action.type) {
     case "LOGIN":
@@ -36,7 +50,7 @@ function appReducer(state, action) {
         role: action.payload.role,
       };
     case "LOGOUT":
-      return initialState;
+      return loggedOutState;
     case "SET_USER":
       return { ...state, user: action.payload };
     case "SET_ROLE":
@@ -263,7 +277,7 @@ function appReducer(state, action) {
     case "SET_NOTIFICATIONS":
       return { ...state, notifications: Array.isArray(action.payload) ? action.payload : [] };
     case "RESET_APP_STATE":
-      return initialState;
+      return loggedOutState;
     default:
       return state;
   }
@@ -271,29 +285,55 @@ function appReducer(state, action) {
 
 export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
+  const { showToast } = useToast();
+  const appStateRef = useRef(AppState.currentState || "active");
+  const notificationsPrimedRef = useRef(false);
+  const seenNotificationIdsRef = useRef(new Set());
 
   const value = useMemo(() => ({ state, dispatch }), [state]);
 
   useEffect(() => {
+    const sub = AppState.addEventListener("change", (nextState) => {
+      appStateRef.current = nextState || "active";
+    });
+
+    return () => {
+      sub?.remove?.();
+    };
+  }, []);
+
+  useEffect(() => {
     let alive = true;
+    let releasedLoading = false;
 
-    // Cache preload
-    (async () => {
-      try {
-        const cached = await cacheService.getUser();
-        if (!alive || !cached) return;
-        dispatch(appActions.setProfile(cached));
-        dispatch(appActions.setRole(cached.role || (isAdminEmail(cached.email) ? "admin" : "user")));
-        dispatch(appActions.setUser({ email: cached.email, uid: cached.uid }));
-      } catch (e) {
-        // ignore cache errors (keep app usable)
-      }
-    })();
+    const finishLoading = () => {
+      if (releasedLoading || !alive) return;
+      releasedLoading = true;
+      dispatch(appActions.setLoading(false));
+    };
 
     (async () => {
       try {
-        const token = await cacheService.getToken();
-        if (!alive || !token) return;
+        const session = await cacheService.getAuthSession();
+        const cached = session?.user || null;
+        const token = session?.token || "";
+        if (!alive) return;
+
+        if (cached && token) {
+          dispatch(appActions.setProfile(cached));
+          dispatch(
+            appActions.setRole(
+              cached.role || (isAdminEmail(cached.email) ? "admin" : "user")
+            )
+          );
+          dispatch(appActions.setUser({ email: cached.email, uid: cached.uid }));
+          finishLoading();
+        }
+
+        if (!token) {
+          finishLoading();
+          return;
+        }
 
         const me = await userService.getMe();
         if (!alive || !me) return;
@@ -309,14 +349,23 @@ export function AppProvider({ children }) {
           bio: me.bio || "",
           avatar: me.avatar || "cat",
           avatarUrl: me.avatarUrl || null,
+          createdAt: me.createdAt || null,
         };
 
         dispatch(appActions.setRole(profile.role || (isAdminEmail(profile.email) ? "admin" : "user")));
         dispatch(appActions.setProfile(profile));
         dispatch(appActions.setUser({ uid: profile.uid, email: profile.email }));
         await cacheService.saveUser(profile);
-      } catch {
+      } catch (err) {
+        const status = err?.response?.status;
+        if (status === 401 || status === 403) {
+          await cacheService.clearAuth();
+          if (alive) dispatch(appActions.logout());
+          return;
+        }
         // ignore (offline)
+      } finally {
+        finishLoading();
       }
     })();
 
@@ -327,39 +376,82 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     let alive = true;
-    let authTimer = null;
     let notifTimer = null;
+    let appStateSub = null;
 
-    authTimer = setInterval(async () => {
+    const loadNotifications = async (force = false) => {
+      if (!alive || !state.user?.uid) return;
+      if (!force && appStateRef.current !== "active") return;
       try {
-        if (!alive) return;
-        const token = await cacheService.getToken();
-        if (!token && state.user) dispatch(appActions.logout());
+        const cachedSession = cacheService.getCachedAuthSession();
+        const token = cachedSession?.token || (await cacheService.getToken());
+        if (!token) {
+          if (alive) dispatch(appActions.logout());
+          return;
+        }
+        const items = await notificationService.getMyNotifications(null, { pageSize: 30 });
+        if (alive) dispatch(appActions.setNotifications(items));
       } catch {
         // ignore
       }
-    }, 2000);
+    };
 
     if (state.user?.uid) {
-      notifTimer = setInterval(async () => {
-        try {
-          if (!alive) return;
-          const token = await cacheService.getToken();
-          if (!token) return;
-          const items = await notificationService.getMyNotifications(null, { pageSize: 30 });
-          dispatch(appActions.setNotifications(items));
-        } catch {
-          // ignore
+      void loadNotifications(true);
+      notifTimer = setInterval(() => {
+        void loadNotifications(false);
+      }, 60000);
+      appStateSub = AppState.addEventListener("change", (nextState) => {
+        appStateRef.current = nextState || "active";
+        if (nextState === "active") {
+          void loadNotifications(true);
         }
-      }, 20000);
+      });
+    } else {
+      notificationsPrimedRef.current = false;
+      seenNotificationIdsRef.current = new Set();
     }
 
     return () => {
       alive = false;
-      if (authTimer) clearInterval(authTimer);
       if (notifTimer) clearInterval(notifTimer);
+      appStateSub?.remove?.();
     };
   }, [dispatch, state.user?.uid]);
+
+  useEffect(() => {
+    if (!state.user?.uid) {
+      notificationsPrimedRef.current = false;
+      seenNotificationIdsRef.current = new Set();
+      return;
+    }
+
+    const ids = new Set((state.notifications || []).map((item) => String(item?.id || "")));
+    if (!notificationsPrimedRef.current) {
+      notificationsPrimedRef.current = true;
+      seenNotificationIdsRef.current = ids;
+      return;
+    }
+
+    const newUnread = (state.notifications || []).filter(
+      (item) => item && !item.read && !seenNotificationIdsRef.current.has(String(item.id || ""))
+    );
+
+    seenNotificationIdsRef.current = ids;
+
+    if (!newUnread.length || appStateRef.current !== "active") return;
+
+    const newest = [...newUnread].sort((a, b) =>
+      String(b?.createdAt || "").localeCompare(String(a?.createdAt || ""))
+    )[0];
+
+    if (!newest) return;
+
+    showToast(getInAppNotificationMessage(newest), {
+      type: "info",
+      durationMs: 3200,
+    });
+  }, [showToast, state.notifications, state.user?.uid]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

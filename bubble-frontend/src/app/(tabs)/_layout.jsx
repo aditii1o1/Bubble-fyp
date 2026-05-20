@@ -3,9 +3,14 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { theme } from "../../constants/themes";
 import { View } from "react-native";
 import { useAppContext } from "../../context/AppContext";
+import SplashScreen from "../../components/common/SplashScreen";
 
 export default function TabLayout() {
   const { state } = useAppContext();
+
+  if (state.isLoading) {
+    return <SplashScreen />;
+  }
 
   if (state.role === "admin") {
     return <Redirect href="/(admin)" />;

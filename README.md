@@ -17,6 +17,12 @@ This repo is split into:
 3. Root `.env` is the single shared file for both backend and frontend.
 4. Legacy fallback: the backend still reads `bubble-backend/.env` if the root `.env` is missing.
 
+Frontend API routing note:
+
+- `EXPO_PUBLIC_API_URL` is used as the default API base URL.
+- `EXPO_PUBLIC_USE_LOCAL_API=true` is an optional dev-only override that makes the app auto-target a local backend on port `4000`.
+- This is useful when you want local development speed, but it should stay `false` if you are intentionally testing against a deployed backend such as Render.
+
 Important donation keys:
 
 - `KHALTI_SECRET_KEY`

@@ -1,45 +1,78 @@
 import axios from "axios";
 import { getApiBaseUrl } from "../config/api";
 import { cacheService } from "./cacheService";
+import { toAppError } from "../utils/errorMessage";
 
 export const apiClient = axios.create({
   baseURL: getApiBaseUrl(),
   timeout: 15000,
 });
 
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => Promise.reject(toAppError(error))
+);
+
+let refreshPromise = null;
+
 async function refreshAccessToken() {
-  const refreshToken = await cacheService.getRefreshToken();
-  if (!refreshToken) return null;
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      const cachedSession = cacheService.getCachedAuthSession();
+      const refreshToken = cachedSession?.refreshToken || (await cacheService.getRefreshToken());
+      if (!refreshToken) {
+        await cacheService.clearAuth();
+        return null;
+      }
 
-  const res = await apiClient.post("/auth/refresh", { refreshToken });
-  const nextAccessToken = String(res.data?.accessToken || "");
-  const nextRefreshToken = String(res.data?.refreshToken || "");
-  if (!nextAccessToken || !nextRefreshToken) return null;
+      try {
+        const res = await apiClient.post("/auth/refresh", { refreshToken });
+        const nextAccessToken = String(res.data?.accessToken || "");
+        const nextRefreshToken = String(res.data?.refreshToken || "");
+        if (!nextAccessToken || !nextRefreshToken) {
+          await cacheService.clearAuth();
+          return null;
+        }
 
-  await cacheService.saveToken(nextAccessToken);
-  await cacheService.saveRefreshToken(nextRefreshToken);
-  return nextAccessToken;
+        await cacheService.saveAuthSession({
+          token: nextAccessToken,
+          refreshToken: nextRefreshToken,
+        });
+        return nextAccessToken;
+      } catch (err) {
+        const status = err?.status || err?.response?.status;
+        if (status === 401 || status === 403) {
+          await cacheService.clearAuth();
+          return null;
+        }
+        throw err;
+      } finally {
+        refreshPromise = null;
+      }
+    })();
+  }
+
+  return refreshPromise;
 }
 
 export async function apiRequest(config) {
-  const token = (await cacheService.getToken()) || "";
+  const cachedSession = cacheService.getCachedAuthSession();
+  const token = cachedSession?.token || (await cacheService.getToken()) || "";
   const headers = { ...(config?.headers || {}) };
   if (token) headers.Authorization = `Bearer ${token}`;
 
   try {
     return await apiClient({ ...config, headers });
   } catch (err) {
-    const status = err?.response?.status;
-    if (status !== 401) throw err;
+    const status = err?.status || err?.response?.status;
+    if (status !== 401 || config?._retriedAfterRefresh) throw err;
 
     const nextAccessToken = await refreshAccessToken();
-    if (!nextAccessToken) {
-      await cacheService.clearAuth();
-      throw err;
-    }
+    if (!nextAccessToken) throw err;
 
     return apiClient({
       ...config,
+      _retriedAfterRefresh: true,
       headers: { ...headers, Authorization: `Bearer ${nextAccessToken}` },
     });
   }

@@ -28,7 +28,6 @@ export default function AdminReportsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      let alive = true;
       (async () => {
         try {
           await syncReports();
@@ -36,9 +35,6 @@ export default function AdminReportsScreen() {
           // ignore
         }
       })();
-      return () => {
-        alive = false;
-      };
     }, [syncReports])
   );
 
@@ -88,10 +84,13 @@ export default function AdminReportsScreen() {
         r.targetId,
         r.reason,
         r.description,
-        r.reporterNickname,
-        r.reporterEmail,
-        r.reportedUserNickname,
-        r.reportedUserId,
+        r.reporter?.nickname || r.reporterNickname,
+        r.reporter?.username || "",
+        r.reporter?.email || r.reporterEmail,
+        r.reportedUser?.nickname || r.reportedUserNickname,
+        r.reportedUser?.username || "",
+        r.reportedUser?.email || "",
+        r.reportedUser?.id || r.reportedUserId,
       ]
         .filter(Boolean)
         .join(" ")
@@ -128,7 +127,7 @@ export default function AdminReportsScreen() {
           }}
         />
         <Text style={[commonStyles.helperText, styles.helper]}>
-          Open reports: {openReports.length} • {state.user?.email}
+          Open reports: {openReports.length} | {state.user?.email}
         </Text>
       </View>
 
@@ -138,7 +137,15 @@ export default function AdminReportsScreen() {
         contentContainerStyle={styles.listContent}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         renderItem={({ item }) => (
-          <ReportCard report={item} onPress={() => openReport(item.id)} />
+          <ReportCard
+            report={item}
+            onPress={() => openReport(item.id)}
+            metaLine={`Reported: ${
+              item.reportedUser?.nickname || item.reportedUserNickname || item.reportedUserId
+            } | By: ${
+              item.reporter?.nickname || item.reporterNickname || item.reporterId
+            }`}
+          />
         )}
         refreshControl={
           <RefreshControl

@@ -21,7 +21,8 @@ function publicMe(u) {
     nickname: u.nickname || "@anonymous",
     bio: u.bio || "",
     avatar: u.avatar || "cat",
-    avatarUrl: u.avatarUrl || null
+    avatarUrl: u.avatarUrl || null,
+    createdAt: u.createdAt ? new Date(u.createdAt).toISOString() : null,
   };
 }
 
@@ -38,7 +39,8 @@ function uploadBufferToCloudinary(buffer, options = {}) {
 const meController = {
   getMe: async (req, res, next) => {
     try {
-      const me = await User.findById(req.user._id).lean();
+      const me = req.user;
+      if (!me) return res.status(401).json({ message: "User not found" });
       return res.json({ user: publicMe(me) });
     } catch (e) {
       return next(e);

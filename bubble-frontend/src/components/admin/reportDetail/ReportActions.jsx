@@ -33,17 +33,27 @@ export default function ReportActions({
   banLabel,
   banDisabled,
   onDeleteContent,
+  resolveLabel = "Mark Resolved",
+  deleteLabel = "Delete Content",
+  resolveDisabled = false,
+  deleteDisabled = false,
+  banBusy = false,
 }) {
   return (
     <View style={styles.container}>
-      <ActionButton label="Mark Resolved" onPress={onResolve} />
+      <ActionButton label={resolveLabel} onPress={onResolve} disabled={resolveDisabled} />
       <ActionButton
         label={banLabel}
         onPress={onToggleBan}
-        disabled={banDisabled}
+        disabled={banDisabled || banBusy}
         variant="secondary"
       />
-      <ActionButton label="Delete Content" onPress={onDeleteContent} variant="danger" />
+      <ActionButton
+        label={deleteLabel}
+        onPress={onDeleteContent}
+        disabled={deleteDisabled}
+        variant="danger"
+      />
     </View>
   );
 }

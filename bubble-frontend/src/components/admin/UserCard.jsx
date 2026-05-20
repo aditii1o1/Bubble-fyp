@@ -1,35 +1,59 @@
 import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
 import { theme } from "../../constants/themes";
 import { commonStyles } from "../../styles/commonStyles";
 import { getAvatarEmoji } from "../../lib/avatars";
-export default function UserCard({ user, onToggleBan }) {
+
+export default function UserCard({ user, onToggleBan, loading = false, disabled = false }) {
+  const buttonLabel = user.isSelf
+    ? "You"
+    : loading
+      ? user.isBanned
+        ? "Unbanning..."
+        : "Banning..."
+      : user.isBanned
+        ? "Unban"
+        : "Ban";
+  const isDisabled = disabled || loading;
+
   return (
     <View style={[commonStyles.card, styles.card]}>
       <View style={styles.left}>
         <View style={styles.avatarCircle}>
-          <Text style={styles.avatarEmoji}>{getAvatarEmoji(user.avatar)}</Text>
+          {user.avatarUrl ? (
+            <Image source={{ uri: user.avatarUrl }} style={styles.avatarImage} />
+          ) : (
+            <Text style={styles.avatarEmoji}>{getAvatarEmoji(user.avatar)}</Text>
+          )}
         </View>
         <View style={styles.userText}>
           <Text style={styles.nickname}>{user.nickname}</Text>
+          {!!user.username && <Text style={styles.username}>@{user.username}</Text>}
           <Text style={styles.email}>{user.email}</Text>
           <Text style={styles.status}>
             Status: {user.isBanned ? "banned" : "active"}
+            {user.isSelf ? " | You" : ""}
           </Text>
         </View>
       </View>
       <TouchableOpacity
-        style={[styles.banButton, user.isBanned && styles.unbanButton]}
+        style={[
+          styles.banButton,
+          user.isBanned && styles.unbanButton,
+          isDisabled && styles.disabledButton,
+        ]}
         onPress={onToggleBan}
         activeOpacity={0.8}
+        disabled={isDisabled}
       >
         <Text style={[styles.banText, user.isBanned && styles.unbanText]}>
-          {user.isBanned ? "Unban" : "Ban"}
+          {buttonLabel}
         </Text>
       </TouchableOpacity>
     </View>
   );
 }
+
 const styles = StyleSheet.create({
   card: {
     padding: theme.spacing.lg,
@@ -52,6 +76,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginRight: theme.spacing.md,
   },
+  avatarImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
   avatarEmoji: {
     fontSize: 20,
   },
@@ -62,6 +91,12 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSize.md,
     fontFamily: theme.fontFamily.bold,
     color: theme.colors.text,
+  },
+  username: {
+    marginTop: 2,
+    fontSize: theme.fontSize.xs,
+    fontFamily: theme.fontFamily.regular,
+    color: theme.colors.primaryPink,
   },
   email: {
     marginTop: 2,
@@ -95,5 +130,8 @@ const styles = StyleSheet.create({
   },
   unbanText: {
     color: theme.colors.text,
+  },
+  disabledButton: {
+    opacity: 0.55,
   },
 });

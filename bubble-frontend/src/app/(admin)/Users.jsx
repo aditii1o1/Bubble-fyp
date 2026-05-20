@@ -14,6 +14,7 @@ import UserCard from "../../components/admin/UserCard";
 import { adminService } from "../../services/adminService";
 import { authService } from "../../services/authService";
 import { useToast } from "../../context/ToastContext";
+import { getErrorMessage } from "../../utils/errorMessage";
 
 export default function AdminUsersScreen() {
   const { state, dispatch } = useAppContext();
@@ -22,6 +23,7 @@ export default function AdminUsersScreen() {
   const [query, setQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [users, setUsers] = useState([]);
+  const [pendingUserId, setPendingUserId] = useState("");
 
   const syncUsers = useCallback(async () => {
     const list = await adminService.getUsers({ pageSize: 120 });
@@ -30,12 +32,17 @@ export default function AdminUsersScreen() {
       (list || []).map((u) => ({
         id: u.uid,
         nickname: u.nickname,
+        username: u.username || "",
         email: u.email,
         avatar: u.avatar || "cat",
+        avatarUrl: u.avatarUrl || null,
+        role: u.role || "user",
         isBanned: !!u.banned,
+        canBan: u.canBan !== false,
+        isSelf: String(u.uid || "") === String(state.user?.uid || ""),
       }))
     );
-  }, []);
+  }, [state.user?.uid]);
 
   useFocusEffect(
     useCallback(() => {
@@ -80,8 +87,13 @@ export default function AdminUsersScreen() {
   }, [dispatch]);
 
   const toggleBan = useCallback((userId) => {
+    if (pendingUserId) return;
     const user = users.find((u) => u.id === userId);
     if (!user) return;
+    if (user.isSelf || user.canBan === false) {
+      showToast("You can't ban your own admin account.", { type: "error" });
+      return;
+    }
 
     const next = !user.isBanned;
     confirmAlert({
@@ -92,6 +104,7 @@ export default function AdminUsersScreen() {
       onConfirm: () => {
         (async () => {
           try {
+            setPendingUserId(userId);
             if (next) await adminService.banUser({ userId });
             else await adminService.unbanUser({ userId });
             showToast(
@@ -99,16 +112,17 @@ export default function AdminUsersScreen() {
               { type: "success" }
             );
           } catch (e) {
-            showToast(e?.message || "Could not update user status.", {
+            showToast(getErrorMessage(e, { fallbackMessage: "Could not update user status." }), {
               type: "error",
             });
           } finally {
+            setPendingUserId("");
             await syncUsers();
           }
         })();
       },
     });
-  }, [showToast, syncUsers, users]);
+  }, [pendingUserId, showToast, syncUsers, users]);
 
   const filteredUsers = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -148,7 +162,12 @@ export default function AdminUsersScreen() {
         contentContainerStyle={styles.listContent}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         renderItem={({ item }) => (
-          <UserCard user={item} onToggleBan={() => toggleBan(item.id)} />
+          <UserCard
+            user={item}
+            onToggleBan={() => toggleBan(item.id)}
+            loading={pendingUserId === item.id}
+            disabled={Boolean(pendingUserId) || item.isSelf || item.canBan === false}
+          />
         )}
         refreshControl={
           <RefreshControl

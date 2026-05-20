@@ -115,6 +115,7 @@ export default function OnboardingScreen() {
           bio: me.bio || "",
           avatar: me.avatar || "cat",
           avatarUrl: me.avatarUrl || null,
+          createdAt: me.createdAt || state.profile?.createdAt || null,
         };
 
         dispatch(appActions.setProfile(updates));

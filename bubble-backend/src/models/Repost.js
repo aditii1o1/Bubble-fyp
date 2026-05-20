@@ -11,4 +11,6 @@ const RepostSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+RepostSchema.index({ userId: 1, createdAt: -1 });
+
 export const Repost = mongoose.model("Repost", RepostSchema);

@@ -13,6 +13,7 @@ import { postService } from "../services/postService";
 import { repostService } from "../services/repostService";
 import { userService } from "../services/userService";
 import { useAppContext } from "../context/AppContext";
+import { formatJoinedDate } from "../lib/utils";
 
 const DEFAULT_BIO =
   "Sharing thoughts and feelings in my bubble. Be kind and breathe.";
@@ -49,15 +50,14 @@ export default function PublicProfileScreen() {
   }, [userId]);
 
   const profile = useMemo(() => {
-    const firstBubble = userBubbles[0];
     return {
       id: userId,
       nickname:
-        profileFromDb?.nickname || nickname || firstBubble?.nickname || "@anonymous",
-      avatar: profileFromDb?.avatar || avatar || firstBubble?.avatar || "cat",
-      avatarUrl: profileFromDb?.avatarUrl || firstBubble?.avatarUrl || null,
+        profileFromDb?.nickname || nickname || userBubbles[0]?.nickname || "@anonymous",
+      avatar: profileFromDb?.avatar || avatar || userBubbles[0]?.avatar || "cat",
+      avatarUrl: profileFromDb?.avatarUrl || userBubbles[0]?.avatarUrl || null,
       bio: profileFromDb?.bio || DEFAULT_BIO,
-      joinedDate: profileFromDb?.joinedDate || "2024",
+      createdAt: profileFromDb?.createdAt || null,
     };
   }, [avatar, nickname, profileFromDb, userBubbles, userId]);
 
@@ -118,7 +118,7 @@ export default function PublicProfileScreen() {
           avatarUrl={profile.avatarUrl}
           nickname={profile.nickname}
           bio={profile.bio}
-          joinedDate={profile.joinedDate}
+          joinedDate={formatJoinedDate(profile.createdAt)}
           stats={stats}
         />
 

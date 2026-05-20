@@ -42,7 +42,11 @@ export default function ResolvedReportsScreen() {
   const sync = useCallback(async () => {
     const resolved = await adminService.getReports({ status: "resolved", pageSize: 120 });
     const deleted = await adminService.getReports({ status: "deleted", pageSize: 120 });
-    setReports([...resolved, ...deleted].sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))));
+    setReports(
+      [...resolved, ...deleted].sort((a, b) =>
+        String(b.createdAt).localeCompare(String(a.createdAt))
+      )
+    );
   }, []);
 
   React.useEffect(() => {
@@ -82,8 +86,14 @@ export default function ResolvedReportsScreen() {
       return reportMatchesQuery(
         r,
         q,
-        { nickname: r.reporterNickname, email: r.reporterEmail },
-        { nickname: r.reportedUserNickname, email: r.reportedUserId }
+        {
+          nickname: r.reporter?.nickname || r.reporterNickname,
+          email: r.reporter?.email || r.reporterEmail,
+        },
+        {
+          nickname: r.reportedUser?.nickname || r.reportedUserNickname,
+          email: r.reportedUser?.email || r.reportedUserId,
+        }
       );
     });
 
@@ -119,7 +129,7 @@ export default function ResolvedReportsScreen() {
           placeholder="Search history (user, reason, id...)"
         />
         <Text style={[commonStyles.helperText, styles.helper]}>
-          History: {counts.resolved} resolved • {counts.deleted} deleted • {state.user?.email}
+          History: {counts.resolved} resolved | {counts.deleted} deleted | {state.user?.email}
         </Text>
       </View>
 
@@ -130,8 +140,8 @@ export default function ResolvedReportsScreen() {
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         renderItem={({ item }) => {
           const metaLine = `Reported: ${
-            item.reportedUserNickname || item.reportedUserId
-          } • By: ${item.reporterNickname || item.reporterId}`;
+            item.reportedUser?.nickname || item.reportedUserNickname || item.reportedUserId
+          } | By: ${item.reporter?.nickname || item.reporterNickname || item.reporterId}`;
 
           return (
             <ReportCard

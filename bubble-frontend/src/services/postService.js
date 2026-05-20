@@ -42,12 +42,23 @@ function sortByCreatedAtDesc(items) {
 }
 
 export const postService = {
-  createPost: async ({ uid, nickname, avatar, avatarUrl, title, text, tags }) => {
-    const check = await moderationService.checkText(
-      `${String(title || "")} ${String(text || "")}`
-    );
-    if (!check.ok) {
-      throw new Error(`This word is blocked: "${check.word}"`);
+  createPost: async ({
+    uid,
+    nickname,
+    avatar,
+    avatarUrl,
+    title,
+    text,
+    tags,
+    skipLocalModeration = false,
+  }) => {
+    if (!skipLocalModeration) {
+      const check = await moderationService.checkText(
+        `${String(title || "")} ${String(text || "")}`
+      );
+      if (!check.ok) {
+        throw new Error(`This word is blocked: "${check.word}"`);
+      }
     }
 
     const res = await api.post("/posts", {

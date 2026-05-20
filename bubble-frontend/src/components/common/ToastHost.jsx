@@ -10,7 +10,10 @@ export default function ToastHost({ toast, onHide }) {
   useEffect(() => {
     if (!toast) return;
 
-    Animated.parallel([
+    opacity.setValue(0);
+    translateY.setValue(-10);
+
+    const animation = Animated.parallel([
       Animated.timing(opacity, {
         toValue: 1,
         duration: 160,
@@ -21,11 +24,14 @@ export default function ToastHost({ toast, onHide }) {
         duration: 160,
         useNativeDriver: true,
       }),
-    ]).start();
+    ]);
+
+    animation.start();
 
     return () => {
-      opacity.setValue(0);
-      translateY.setValue(-10);
+      animation.stop();
+      opacity.stopAnimation();
+      translateY.stopAnimation();
     };
   }, [opacity, toast, translateY]);
 

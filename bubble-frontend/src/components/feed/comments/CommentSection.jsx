@@ -12,6 +12,7 @@ import { moderationService } from "../../../services/moderationService";
 import { notificationService } from "../../../services/notificationService";
 import { confirmAlert } from "../../../utils/alertUtils";
 import { commentReactionService } from "../../../services/commentReactionService";
+import { getErrorMessage, isNetworkLikeError, isTimeoutError } from "../../../utils/errorMessage";
 const DEFAULT_REACTIONS = { heart: 0 };
 export default function CommentSection({ bubbleId }) {
   const { state, dispatch } = useAppContext();
@@ -106,15 +107,26 @@ export default function CommentSection({ bubbleId }) {
               fromNickname: optimistic.nickname,
               fromUserId: uid,
               postId: bubbleId,
+              eventKey: created?.id ? `comment:${created.id}` : `comment:${uid}:${bubbleId}`,
             });
           }
         } catch (e) {
           dispatch(appActions.deleteCommentLocal(bubbleId, tempId));
-          showToast(e?.message || "Could not post comment. Try again.", { type: "error" });
+          if (isNetworkLikeError(e) || isTimeoutError(e)) {
+            showToast("Couldn't confirm your comment was saved. Refresh to check if it went through.", {
+              type: "error",
+            });
+            return;
+          }
+          showToast(getErrorMessage(e, { fallbackMessage: "Could not post comment. Try again." }), {
+            type: "error",
+          });
         }
       })();
     } catch (e) {
-      showToast(e?.message || "Could not post comment.", { type: "error" });
+      showToast(getErrorMessage(e, { fallbackMessage: "Could not post comment." }), {
+        type: "error",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -141,7 +153,9 @@ export default function CommentSection({ bubbleId }) {
         );
       } catch (e) {
         dispatch(appActions.toggleCommentReaction(bubbleId, commentId, reactionKey));
-        showToast(e?.message || "Could not like comment. Try again.", { type: "error" });
+        showToast(getErrorMessage(e, { fallbackMessage: "Could not like comment. Try again." }), {
+          type: "error",
+        });
       }
     })();
   };
@@ -175,7 +189,7 @@ export default function CommentSection({ bubbleId }) {
               });
               showToast("Comment deleted.", { type: "success" });
             } catch (e) {
-              showToast(e?.message || "Could not delete comment. Try again.", {
+              showToast(getErrorMessage(e, { fallbackMessage: "Could not delete comment. Try again." }), {
                 type: "error",
               });
               try {
@@ -227,7 +241,9 @@ export default function CommentSection({ bubbleId }) {
         });
         showToast("Report submitted. Thank you!", { type: "success" });
       } catch (e) {
-        showToast(e?.message || "Could not submit report. Try again.", { type: "error" });
+        showToast(getErrorMessage(e, { fallbackMessage: "Could not submit report. Try again." }), {
+          type: "error",
+        });
       } finally {
         setShowReportModal(false);
         setReportingComment(null);

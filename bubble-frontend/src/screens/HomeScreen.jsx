@@ -38,9 +38,16 @@ const HomeScreen = () => {
 
   const fade = useRef(new Animated.Value(0)).current;
   const rise = useRef(new Animated.Value(8)).current;
+  const latestPostsRef = useRef(state.posts);
+  const isFetchingRef = useRef(false);
+  const lastNetworkFetchAtRef = useRef(0);
 
   useEffect(() => {
-    Animated.parallel([
+    latestPostsRef.current = state.posts;
+  }, [state.posts]);
+
+  useEffect(() => {
+    const animation = Animated.parallel([
       Animated.timing(fade, {
         toValue: 1,
         duration: 420,
@@ -51,55 +58,83 @@ const HomeScreen = () => {
         duration: 420,
         useNativeDriver: true,
       }),
-    ]).start();
+    ]);
+
+    animation.start();
+
+    return () => {
+      animation.stop();
+      fade.stopAnimation();
+      rise.stopAnimation();
+    };
   }, [fade, rise]);
 
-  const fetchBubbles = useCallback(async () => {
+  const fetchBubbles = useCallback(async ({ forceNetwork = false, showSpinner = true } = {}) => {
+    if (isFetchingRef.current) return;
+    if (forceNetwork && Date.now() - lastNetworkFetchAtRef.current < 1500) return;
+
+    isFetchingRef.current = true;
+    let latestPosts = latestPostsRef.current;
+    const hadLivePosts = latestPosts.length > 0;
+
     try {
       // Cache first
-      if (state.posts.length === 0) {
+      if (!forceNetwork && latestPosts.length === 0) {
         const cached = await cacheService.getPosts();
         if (Array.isArray(cached) && cached.length > 0) {
           const now = Date.now();
+          latestPosts = cached.filter((p) => {
+            const exp = p?.expiresAt;
+            if (!exp) return true;
+            const t = new Date(exp).getTime();
+            if (!Number.isFinite(t)) return true;
+            return t > now;
+          });
           dispatch(
-            appActions.setPosts(
-              cached.filter((p) => {
-                const exp = p?.expiresAt;
-                if (!exp) return true;
-                const t = new Date(exp).getTime();
-                if (!Number.isFinite(t)) return true;
-                return t > now;
-              })
-            )
+            appActions.setPosts(latestPosts)
           );
         }
       }
 
-      if (state.posts.length > 0 && !refreshing) {
+      if (!forceNetwork && hadLivePosts && !refreshing) {
         setIsLoading(false);
         return;
       }
 
-      setIsLoading(true);
+      if (showSpinner && latestPosts.length === 0) {
+        setIsLoading(true);
+      }
       const posts = await postService.getFeed({ pageSize: 20 });
+      latestPosts = posts;
+      lastNetworkFetchAtRef.current = Date.now();
       dispatch(appActions.setPosts(posts));
       await cacheService.savePosts(posts.slice(0, 20));
-
-      // Load my reactions
-      if (state.user?.uid) {
-        const myMap = await reactionService.getMyReactionsForPosts({
-          postIds: posts.map((p) => p.id),
-          uid: state.user.uid,
-        });
-        dispatch(appActions.setMyReactions(myMap));
-      }
     } catch (e) {
-      console.error("Fetch feed error:", e);
+      const status = e?.response?.status;
+      if (status !== 401 && status !== 403) {
+        console.error("Fetch feed error:", e);
+      }
     } finally {
       setIsLoading(false);
       setRefreshing(false);
+      isFetchingRef.current = false;
     }
-  }, [dispatch, refreshing, state.posts.length, state.user?.uid]);
+
+    if (!state.user?.uid) return;
+
+    try {
+      const myMap = await reactionService.getMyReactionsForPosts({
+        postIds: (latestPosts || []).map((p) => p.id),
+        uid: state.user.uid,
+      });
+      dispatch(appActions.setMyReactions(myMap));
+    } catch (e) {
+      const status = e?.response?.status;
+      if (status !== 401 && status !== 403) {
+        console.error("Fetch reactions error:", e);
+      }
+    }
+  }, [dispatch, refreshing, state.user?.uid]);
 
   useEffect(() => {
     fetchBubbles();
@@ -107,33 +142,13 @@ const HomeScreen = () => {
 
   useFocusEffect(
     useCallback(() => {
-      let unsub = null;
-      try {
-        unsub = postService.subscribeFeed({
-          pageSize: 20,
-          onNext: async (items) => {
-            dispatch(appActions.setPosts(items));
-            try {
-              await cacheService.savePosts(items.slice(0, 20));
-            } catch {
-              // ignore
-            }
-            setIsLoading(false);
-            setRefreshing(false);
-          },
-        });
-      } catch {
-        // ignore
-      }
-      return () => {
-        if (unsub) unsub();
-      };
-    }, [dispatch])
+      void fetchBubbles({ forceNetwork: true, showSpinner: false });
+    }, [fetchBubbles])
   );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchBubbles();
+    void fetchBubbles({ forceNetwork: true, showSpinner: false });
   }, [fetchBubbles]);
 
   const handleReact = (bubbleId, emoji) => {
@@ -168,6 +183,7 @@ const HomeScreen = () => {
               fromNickname: state.profile.nickname || "@someone",
               fromUserId: uid,
               postId: bubbleId,
+              eventKey: `reaction:${uid}:${bubbleId}`,
             });
           }
         }

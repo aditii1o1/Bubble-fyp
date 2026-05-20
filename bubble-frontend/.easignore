@@ -4,8 +4,10 @@ node_modules/
 dist/
 .kotlin/
 .gradle/
+.gradle-cache/
 .gradle-local/
 .gradle-local-*/
+../.gradle-cache/
 android/.gradle/
 android/.gradle-local/
 android/.gradle-local-*/
