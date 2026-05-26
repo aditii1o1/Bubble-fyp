@@ -2,6 +2,8 @@ import { apiClient } from "./apiClient";
 import { cacheService } from "./cacheService";
 import { toAppError } from "../utils/errorMessage";
 
+const AUTH_REQUEST_TIMEOUT_MS = 10000;
+
 function toProfile(user) {
   return {
     uid: user.id,
@@ -22,10 +24,14 @@ export const authService = {
   signup: async ({ email, password } = {}) => {
     const normalizedEmail = String(email || "").trim().toLowerCase();
     try {
-      const res = await apiClient.post("/auth/register", {
-        email: normalizedEmail,
-        password: String(password || ""),
-      });
+      const res = await apiClient.post(
+        "/auth/register",
+        {
+          email: normalizedEmail,
+          password: String(password || ""),
+        },
+        { timeout: AUTH_REQUEST_TIMEOUT_MS }
+      );
 
       const user = res.data?.user || null;
       const accessToken = String(res.data?.accessToken || "");
@@ -61,10 +67,14 @@ export const authService = {
 
   login: async (email, password) => {
     try {
-      const res = await apiClient.post("/auth/login", {
-        email: String(email || "").trim().toLowerCase(),
-        password: String(password || ""),
-      });
+      const res = await apiClient.post(
+        "/auth/login",
+        {
+          email: String(email || "").trim().toLowerCase(),
+          password: String(password || ""),
+        },
+        { timeout: AUTH_REQUEST_TIMEOUT_MS }
+      );
 
       const user = res.data?.user;
       const accessToken = String(res.data?.accessToken || "");
@@ -82,6 +92,23 @@ export const authService = {
       return { user: { uid: profile.uid, email: profile.email }, token: accessToken, profile };
     } catch (e) {
       throw toAppError(e, { fallbackMessage: "Could not sign in. Please try again." });
+    }
+  },
+
+  resendVerificationEmail: async ({ email } = {}) => {
+    try {
+      await apiClient.post(
+        "/auth/resend-verification",
+        {
+          email: String(email || "").trim().toLowerCase(),
+        },
+        { timeout: AUTH_REQUEST_TIMEOUT_MS }
+      );
+      return true;
+    } catch (e) {
+      throw toAppError(e, {
+        fallbackMessage: "Could not resend the verification link. Please try again.",
+      });
     }
   },
 

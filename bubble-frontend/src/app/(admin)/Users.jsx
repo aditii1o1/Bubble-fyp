@@ -33,10 +33,13 @@ export default function AdminUsersScreen() {
         id: u.uid,
         nickname: u.nickname,
         username: u.username || "",
+        bio: u.bio || "",
         email: u.email,
         avatar: u.avatar || "cat",
         avatarUrl: u.avatarUrl || null,
         role: u.role || "user",
+        onboarded: !!u.onboarded,
+        createdAt: u.createdAt || null,
         isBanned: !!u.banned,
         canBan: u.canBan !== false,
         isSelf: String(u.uid || "") === String(state.user?.uid || ""),
@@ -130,6 +133,8 @@ export default function AdminUsersScreen() {
     return users.filter((u) => {
       return (
         String(u.nickname || "").toLowerCase().includes(q) ||
+        String(u.username || "").toLowerCase().includes(q) ||
+        String(u.bio || "").toLowerCase().includes(q) ||
         String(u.email || "").toLowerCase().includes(q) ||
         String(u.id || "").toLowerCase().includes(q)
       );

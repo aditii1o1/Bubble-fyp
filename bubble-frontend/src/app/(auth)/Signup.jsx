@@ -146,6 +146,7 @@ export default function SignupScreen() {
           }
           variant="secondary"
           onPress={handleSubmit(onSubmit)}
+          loading={isLoading || isSubmitting}
           disabled={isLoading || isSubmitting}
           style={styles.signupButton}
         />

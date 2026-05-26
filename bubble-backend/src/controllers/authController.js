@@ -370,6 +370,30 @@ const authController = {
     }
   },
 
+  resendVerificationEmail: async (req, res, next) => {
+    try {
+      const email =
+        typeof req.body?.email === "string"
+          ? req.body.email.trim().toLowerCase()
+          : "";
+      if (!email) return res.status(400).json({ message: "Email is required" });
+
+      const userDoc = await User.findOne({ email });
+      if (userDoc && !userDoc.emailVerified) {
+        const verifyToken = randomToken(32);
+        userDoc.verifyEmailTokenHash = sha256(verifyToken);
+        userDoc.verifyEmailTokenExpiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
+        await userDoc.save();
+
+        sendVerificationEmailInBackground({ email, verifyToken, req });
+      }
+
+      return res.json({ ok: true });
+    } catch (e) {
+      return next(e);
+    }
+  },
+
   login: async (req, res, next) => {
     try {
       const email =

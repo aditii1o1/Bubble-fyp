@@ -42,6 +42,7 @@ export default function ProfileScreen() {
   const uid = String(state.user?.uid || "").trim();
   const nickname =
     state.profile.nickname || "@anonymous";
+  const username = state.profile.username || "";
   const avatar = state.profile.avatar || "cat";
   const avatarUrl = state.profile.avatarUrl || null;
   const bio = state.profile.bio;
@@ -272,6 +273,8 @@ export default function ProfileScreen() {
           avatar={avatar}
           avatarUrl={avatarUrl}
           nickname={nickname}
+          username={username}
+          email={email}
           bio={bio}
           joinedDate={joinedDate}
           stats={stats}

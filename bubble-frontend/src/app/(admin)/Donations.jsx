@@ -20,6 +20,7 @@ import EmptyState from "../../components/common/EmptyState";
 import ScreenHeader from "../../components/common/ScreenHeader";
 import SearchBar from "../../components/common/SearchBar";
 import DonationCard from "../../components/admin/DonationCard";
+import AdminDonationChart from "../../components/admin/AdminDonationChart";
 import { adminService } from "../../services/adminService";
 import { authService } from "../../services/authService";
 
@@ -157,6 +158,7 @@ export default function AdminDonationsScreen() {
             {totals.count} - {formatAmountNpr(totals.sum)}
           </Text>
         </View>
+        <AdminDonationChart donations={donations} />
       </View>
 
       {isWeb ? (

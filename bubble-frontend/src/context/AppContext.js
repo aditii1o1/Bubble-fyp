@@ -41,6 +41,19 @@ function getInAppNotificationMessage(notification) {
   return "You have a new notification";
 }
 
+function mergeIncomingPostsWithPending(existingPosts, incomingPosts) {
+  const nextPosts = Array.isArray(incomingPosts) ? incomingPosts : [];
+  const pendingPosts = (Array.isArray(existingPosts) ? existingPosts : []).filter(
+    (post) => post?.isPending
+  );
+
+  if (!pendingPosts.length) return nextPosts;
+
+  const nextIds = new Set(nextPosts.map((post) => String(post?.id || "")));
+  const preservedPending = pendingPosts.filter((post) => !nextIds.has(String(post?.id || "")));
+  return [...preservedPending, ...nextPosts];
+}
+
 function appReducer(state, action) {
   switch (action.type) {
     case "LOGIN":
@@ -95,7 +108,7 @@ function appReducer(state, action) {
         profile: { ...state.profile, nickname: action.payload },
       };
     case "SET_POSTS":
-      return { ...state, posts: action.payload };
+      return { ...state, posts: mergeIncomingPostsWithPending(state.posts, action.payload) };
     case "SET_REPOSTS":
       return { ...state, reposts: action.payload };
     case "ADD_POST":

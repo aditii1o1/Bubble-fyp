@@ -19,7 +19,7 @@ const DEFAULT_BIO =
   "Sharing thoughts and feelings in my bubble. Be kind and breathe.";
 
 export default function PublicProfileScreen() {
-  const { userId, nickname, avatar } = useLocalSearchParams();
+  const { userId, nickname, avatar, username } = useLocalSearchParams();
   const { state } = useAppContext();
   const [activeTab, setActiveTab] = useState("posts");
   const [userBubbles, setUserBubbles] = useState([]);
@@ -41,7 +41,7 @@ export default function PublicProfileScreen() {
         setUserReposts(Array.isArray(reposts) ? reposts : []);
         setProfileFromDb(prof || null);
       } catch (e) {
-        // keep UI usable even if Firestore fails
+        // Keep the screen usable even if one of the requests fails.
       }
     })();
     return () => {
@@ -54,19 +54,14 @@ export default function PublicProfileScreen() {
       id: userId,
       nickname:
         profileFromDb?.nickname || nickname || userBubbles[0]?.nickname || "@anonymous",
+      username:
+        profileFromDb?.username || username || "",
       avatar: profileFromDb?.avatar || avatar || userBubbles[0]?.avatar || "cat",
       avatarUrl: profileFromDb?.avatarUrl || userBubbles[0]?.avatarUrl || null,
       bio: profileFromDb?.bio || DEFAULT_BIO,
       createdAt: profileFromDb?.createdAt || null,
     };
-  }, [avatar, nickname, profileFromDb, userBubbles, userId]);
-
-  const totalReactions = useMemo(() => {
-    return userBubbles.reduce((sum, bubble) => {
-      const reactions = bubble.reactions || {};
-      return sum + Object.values(reactions).reduce((a, b) => a + b, 0);
-    }, 0);
-  }, [userBubbles]);
+  }, [avatar, nickname, profileFromDb, userBubbles, userId, username]);
 
   // If Firestore is slow/blocked, still show whatever we already have from the feed.
   const fallbackPosts = useMemo(() => {
@@ -89,6 +84,13 @@ export default function PublicProfileScreen() {
     const all = state.posts || [];
     return shownPostsRaw.map((p) => all.find((x) => x.id === p.id) || p);
   }, [shownPostsRaw, state.posts]);
+
+  const totalReactions = useMemo(() => {
+    return shownPosts.reduce((sum, bubble) => {
+      const reactions = bubble.reactions || {};
+      return sum + Object.values(reactions).reduce((a, b) => a + b, 0);
+    }, 0);
+  }, [shownPosts]);
 
   const tabs = useMemo(
     () => [
@@ -117,6 +119,7 @@ export default function PublicProfileScreen() {
           avatar={profile.avatar}
           avatarUrl={profile.avatarUrl}
           nickname={profile.nickname}
+          username={profile.username}
           bio={profile.bio}
           joinedDate={formatJoinedDate(profile.createdAt)}
           stats={stats}

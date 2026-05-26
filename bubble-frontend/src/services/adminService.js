@@ -138,7 +138,15 @@ export const adminService = {
 
   getDashboardCounts: async () => {
     const res = await api.get("/admin/dashboard");
-    return res.data;
+    return {
+      openReports: Number(res.data?.openReports || 0),
+      resolvedReports: Number(res.data?.resolvedReports || 0),
+      users: Number(res.data?.users || 0),
+      bannedUsers: Number(res.data?.bannedUsers || 0),
+      posts: Number(res.data?.posts || 0),
+      comments: Number(res.data?.comments || 0),
+      activity: Array.isArray(res.data?.activity) ? res.data.activity : [],
+    };
   },
 
   getDonations: async ({ pageSize = 100, status, q } = {}) => {

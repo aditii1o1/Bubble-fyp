@@ -11,6 +11,8 @@ export default function ProfileHeader({
   avatar = "cat",
   avatarUrl,
   nickname = "@anonymous",
+  username = "",
+  email = "",
   bio,
   joinedDate,
   stats = [],
@@ -21,6 +23,11 @@ export default function ProfileHeader({
   const avatarPressableProps = onAvatarPress
     ? { onPress: onAvatarPress, activeOpacity: 0.8 }
     : {};
+  const normalizedUsername = String(username || "").trim();
+  const normalizedNickname = String(nickname || "").trim().toLowerCase();
+  const showUsername =
+    normalizedUsername &&
+    normalizedNickname !== `@${normalizedUsername}`.toLowerCase();
 
   return (
     <View style={[commonStyles.card, styles.card]}>
@@ -49,6 +56,8 @@ export default function ProfileHeader({
       </AvatarPressable>
 
       <Text style={styles.nickname}>{nickname}</Text>
+      {!!showUsername && <Text style={styles.username}>@{normalizedUsername}</Text>}
+      {!!email && <Text style={styles.email}>{email}</Text>}
 
       {bio ? (
         <View style={styles.bioRow}>

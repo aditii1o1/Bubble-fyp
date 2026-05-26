@@ -24,7 +24,8 @@ import { reactionService } from "../services/reactionService";
 import { TAGS } from "../constants/tags";
 import { useToast } from "../context/ToastContext";
 import { notificationService } from "../services/notificationService";
-import { LinearGradient } from "expo-linear-gradient";
+
+const MIN_FEED_REFRESH_INTERVAL_MS = 600;
 
 const HomeScreen = () => {
   const { state, dispatch } = useAppContext();
@@ -71,7 +72,12 @@ const HomeScreen = () => {
 
   const fetchBubbles = useCallback(async ({ forceNetwork = false, showSpinner = true } = {}) => {
     if (isFetchingRef.current) return;
-    if (forceNetwork && Date.now() - lastNetworkFetchAtRef.current < 1500) return;
+    if (
+      forceNetwork &&
+      Date.now() - lastNetworkFetchAtRef.current < MIN_FEED_REFRESH_INTERVAL_MS
+    ) {
+      return;
+    }
 
     isFetchingRef.current = true;
     let latestPosts = latestPostsRef.current;
@@ -256,7 +262,7 @@ const HomeScreen = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
-      <LinearGradient colors={theme.gradient} style={{ flex: 1 }}>
+      <View style={{ flex: 1 }}>
         <Header onFilterClick={() => setShowFilterModal(true)} />
 
         {selectedTags.length > 0 && (
@@ -324,12 +330,16 @@ const HomeScreen = () => {
               </View>
             ) : (
               filteredBubbles.map((bubble) => (
-                <BubbleCard
-                  key={bubble.id}
-                  bubble={bubble}
-                  onReact={handleReact}
-                  onViewProfile={handleViewProfile}
-                />
+                bubble?.isPending ? (
+                  <Skeleton key={bubble.id} label="Posting your bubble..." />
+                ) : (
+                  <BubbleCard
+                    key={bubble.id}
+                    bubble={bubble}
+                    onReact={handleReact}
+                    onViewProfile={handleViewProfile}
+                  />
+                )
               ))
             )}
           </ScrollView>
@@ -343,7 +353,7 @@ const HomeScreen = () => {
           tags={availableTags}
           selectedTags={selectedTags}
         />
-      </LinearGradient>
+      </View>
     </SafeAreaView>
   );
 };

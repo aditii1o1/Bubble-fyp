@@ -397,10 +397,13 @@ export default function VerifyAgeScreen() {
         return;
       }
 
-      showToast("Account created. Verify your email, then sign in.", {
+      showToast("Age verified. Check your email for the verification link.", {
         type: "success",
       });
-      router.replace("/(auth)/Login");
+      router.replace({
+        pathname: "/(auth)/VerifyEmailSent",
+        params: { email: signupData.email },
+      });
     } catch (error) {
       showToast(getAuthErrorMessage(error), { type: "error" });
     } finally {

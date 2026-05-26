@@ -36,8 +36,6 @@ export default function ProfileSettingsSection({
   return (
     <View style={styles.section}>
       <Text style={styles.title}>Settings</Text>
-
-      <SettingsItem icon="notifications-outline" label="Notifications" onPress={comingSoon} />
       <SettingsItem
         icon="shield-outline"
         label="Privacy Policy"

@@ -133,8 +133,9 @@ export default function CreateScreen() {
       const expiresAt = new Date(now + 24 * 60 * 60 * 1000).toISOString();
       const tempId = `temp_${now}`;
 
-        const optimistic = {
+      const optimistic = {
         id: tempId,
+        isPending: true,
         userId: uid,
         nickname,
         avatar: state.profile.avatar || "cat",

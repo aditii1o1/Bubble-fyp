@@ -11,6 +11,74 @@ import { CommentReaction } from "../models/CommentReaction.js";
 import { Donation } from "../models/Donation.js";
 import { serializeDonation } from "../utils/donations.js";
 
+function startOfUtcDay(date) {
+  const value = new Date(date);
+  value.setUTCHours(0, 0, 0, 0);
+  return value;
+}
+
+function addUtcDays(date, days) {
+  const value = new Date(date);
+  value.setUTCDate(value.getUTCDate() + days);
+  return value;
+}
+
+function formatDayKey(date) {
+  return startOfUtcDay(date).toISOString().slice(0, 10);
+}
+
+async function getDailyCounts(Model, startDate) {
+  const rows = await Model.aggregate([
+    { $match: { createdAt: { $gte: startDate } } },
+    {
+      $group: {
+        _id: {
+          $dateToString: {
+            format: "%Y-%m-%d",
+            date: "$createdAt",
+            timezone: "UTC",
+          },
+        },
+        count: { $sum: 1 },
+      },
+    },
+  ]);
+
+  return new Map(rows.map((row) => [String(row?._id || ""), Number(row?.count || 0)]));
+}
+
+async function getDashboardActivity(days = 7) {
+  const today = startOfUtcDay(new Date());
+  const startDate = addUtcDays(today, -(days - 1));
+
+  const [userCounts, postCounts, commentCounts, reportCounts] = await Promise.all([
+    getDailyCounts(User, startDate),
+    getDailyCounts(Post, startDate),
+    getDailyCounts(Comment, startDate),
+    getDailyCounts(Report, startDate),
+  ]);
+
+  const items = [];
+  for (let index = 0; index < days; index += 1) {
+    const date = addUtcDays(startDate, index);
+    const key = formatDayKey(date);
+    items.push({
+      date: key,
+      label: date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        timeZone: "UTC",
+      }),
+      users: userCounts.get(key) || 0,
+      posts: postCounts.get(key) || 0,
+      comments: commentCounts.get(key) || 0,
+      reports: reportCounts.get(key) || 0,
+    });
+  }
+
+  return items;
+}
+
 function formatAdminUser(userDoc, { includeEmail = true } = {}) {
   if (!userDoc) return null;
 
@@ -22,6 +90,7 @@ function formatAdminUser(userDoc, { includeEmail = true } = {}) {
     onboarded: Boolean(userDoc.onboarded),
     nickname: userDoc.nickname || "@anonymous",
     username: userDoc.username || "",
+    bio: userDoc.bio || "",
     avatar: userDoc.avatar || "cat",
     avatarUrl: userDoc.avatarUrl || null,
     createdAt: userDoc.createdAt ? new Date(userDoc.createdAt).toISOString() : null,
@@ -42,6 +111,7 @@ function fallbackAdminUser({
     onboarded: false,
     nickname: nickname || "@anonymous",
     username: "",
+    bio: "",
     avatar: "cat",
     avatarUrl: null,
     createdAt: null,
@@ -135,12 +205,24 @@ async function attachUsersToReports(reportDocs) {
 const adminController = {
   getDashboardCounts: async (req, res, next) => {
     try {
-      const [openReports, users, posts] = await Promise.all([
+      const [openReports, resolvedReports, users, bannedUsers, posts, comments, activity] = await Promise.all([
         Report.countDocuments({ status: "open" }),
+        Report.countDocuments({ status: "resolved" }),
         User.countDocuments({}),
-        Post.countDocuments({})
+        User.countDocuments({ banned: true }),
+        Post.countDocuments({}),
+        Comment.countDocuments({}),
+        getDashboardActivity(7),
       ]);
-      return res.json({ openReports, users, posts, comments: 0 });
+      return res.json({
+        openReports,
+        resolvedReports,
+        users,
+        bannedUsers,
+        posts,
+        comments,
+        activity,
+      });
     } catch (e) {
       return next(e);
     }
@@ -205,6 +287,7 @@ const adminController = {
         onboarded: Boolean(userDoc.onboarded),
         nickname: userDoc.nickname || "@anonymous",
         username: userDoc.username || "",
+        bio: userDoc.bio || "",
         avatar: userDoc.avatar || "cat",
         avatarUrl: userDoc.avatarUrl || null,
         createdAt: userDoc.createdAt,
