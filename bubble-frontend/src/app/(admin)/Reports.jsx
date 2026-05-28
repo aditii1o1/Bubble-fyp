@@ -4,18 +4,17 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { theme } from "../../constants/themes";
-import { appActions, useAppContext } from "../../context/AppContext";
+import { useAppContext } from "../../context/AppContext";
 import { commonStyles } from "../../styles/commonStyles";
-import { confirmAlert } from "../../utils/alertUtils";
 import EmptyState from "../../components/common/EmptyState";
 import ScreenHeader from "../../components/common/ScreenHeader";
 import SearchBar from "../../components/common/SearchBar";
 import ReportCard from "../../components/admin/ReportCard";
+import AdminProfileMenu from "../../components/admin/AdminProfileMenu";
 import { adminService } from "../../services/adminService";
-import { authService } from "../../services/authService";
 
 export default function AdminReportsScreen() {
-  const { state, dispatch } = useAppContext();
+  const { state } = useAppContext();
 
   const [query, setQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -48,25 +47,6 @@ export default function AdminReportsScreen() {
       }
     })();
   }, [syncReports]);
-
-  const confirmLogout = useCallback(() => {
-    confirmAlert({
-      title: "Log out",
-      message: "Are you sure you want to log out of admin?",
-      confirmText: "Log out",
-      confirmStyle: "destructive",
-      onConfirm: () => {
-        (async () => {
-          try {
-            dispatch(appActions.logout());
-            await authService.logout();
-          } finally {
-            router.replace("/(auth)/Login");
-          }
-        })();
-      },
-    });
-  }, [dispatch]);
 
   const openReports = useMemo(
     () => reports.filter((r) => r.status === "open"),
@@ -111,9 +91,7 @@ export default function AdminReportsScreen() {
       <ScreenHeader
         title="Reports"
         onBack={router.back}
-        rightIcon="log-out-outline"
-        onRightPress={confirmLogout}
-        rightAccessibilityLabel="Log out"
+        rightComponent={<AdminProfileMenu />}
       />
 
       <View style={styles.searchWrap}>

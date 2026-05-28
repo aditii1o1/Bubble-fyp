@@ -5,6 +5,7 @@ import { router } from "expo-router";
 import { theme } from "../../constants/themes";
 import { commonStyles } from "../../styles/commonStyles";
 import ScreenHeader from "../../components/common/ScreenHeader";
+import AdminProfileMenu from "../../components/admin/AdminProfileMenu";
 import { useToast } from "../../context/ToastContext";
 import { confirmAlert } from "../../utils/alertUtils";
 import { broadcastService } from "../../services/broadcastService";
@@ -103,7 +104,11 @@ export default function AdminNotificationsScreen() {
     <SafeAreaView style={commonStyles.screen}>
       <StatusBar barStyle="dark-content" />
 
-      <ScreenHeader title="Send Notifications" onBack={router.back} />
+      <ScreenHeader
+        title="Send Notifications"
+        onBack={router.back}
+        rightComponent={<AdminProfileMenu />}
+      />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.section}>

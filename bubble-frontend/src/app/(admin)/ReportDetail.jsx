@@ -3,23 +3,23 @@ import { ScrollView, StatusBar, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { theme } from "../../constants/themes";
-import { appActions, useAppContext } from "../../context/AppContext";
+import { useAppContext } from "../../context/AppContext";
 import { commonStyles } from "../../styles/commonStyles";
 import { confirmAlert } from "../../utils/alertUtils";
 import EmptyState from "../../components/common/EmptyState";
 import ScreenHeader from "../../components/common/ScreenHeader";
+import AdminProfileMenu from "../../components/admin/AdminProfileMenu";
 import ReportInfoCard from "../../components/admin/reportDetail/ReportInfoCard";
 import ReportPeopleCard from "../../components/admin/reportDetail/ReportPeopleCard";
 import ReportContentCard from "../../components/admin/reportDetail/ReportContentCard";
 import ReportActions from "../../components/admin/reportDetail/ReportActions";
 import { adminService } from "../../services/adminService";
-import { authService } from "../../services/authService";
 import { useToast } from "../../context/ToastContext";
 import { getErrorMessage } from "../../utils/errorMessage";
 
 export default function AdminReportDetailScreen() {
   const { reportId } = useLocalSearchParams();
-  const { state, dispatch } = useAppContext();
+  const { state } = useAppContext();
   const { showToast } = useToast();
   const [report, setReport] = useState(null);
   const [reporter, setReporter] = useState(null);
@@ -54,25 +54,6 @@ export default function AdminReportDetailScreen() {
   const canToggleBan =
     !!reportedUser &&
     String(reportedUser.id || "") !== String(state.user?.uid || "");
-
-  const confirmLogout = useCallback(() => {
-    confirmAlert({
-      title: "Log out",
-      message: "Are you sure you want to log out of admin?",
-      confirmText: "Log out",
-      confirmStyle: "destructive",
-      onConfirm: () => {
-        (async () => {
-          try {
-            dispatch(appActions.logout());
-            await authService.logout();
-          } finally {
-            router.replace("/(auth)/Login");
-          }
-        })();
-      },
-    });
-  }, [dispatch]);
 
   const onResolve = useCallback(() => {
     if (!report || isBusy || report.status !== "open") return;
@@ -174,9 +155,7 @@ export default function AdminReportDetailScreen() {
         <ScreenHeader
           title="Report"
           onBack={router.back}
-          rightIcon="log-out-outline"
-          onRightPress={confirmLogout}
-          rightAccessibilityLabel="Log out"
+          rightComponent={<AdminProfileMenu />}
         />
         <EmptyState
           icon="alert-circle-outline"
@@ -194,9 +173,7 @@ export default function AdminReportDetailScreen() {
       <ScreenHeader
         title="Report Detail"
         onBack={router.back}
-        rightIcon="log-out-outline"
-        onRightPress={confirmLogout}
-        rightAccessibilityLabel="Log out"
+        rightComponent={<AdminProfileMenu />}
       />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>

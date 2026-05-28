@@ -1,13 +1,11 @@
 // src/components/header/Header.jsx
 import React, { useState } from "react";
-import { View, Text, TouchableOpacity, Image } from "react-native";
+import { View, Text, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { theme } from "../../constants/themes";
 import NotificationsPanel from "../feed/NotificationsPanel";
 import { useAppContext } from "../../context/AppContext";
 import { styles } from "./Header.styles";
-
-const logoImage = require("../../../assets/logo.png");
 
 export default function Header({ onFilterClick }) {
   const [showNotifications, setShowNotifications] = useState(false);
@@ -25,7 +23,7 @@ export default function Header({ onFilterClick }) {
       {/* Logo */}
       <TouchableOpacity style={styles.logoButton} onPress={handleLogoPress}>
         <View style={styles.logoContainer}>
-          <Image source={logoImage} style={styles.logoImage} resizeMode="contain" />
+          <Text style={styles.logoText}>Bubble</Text>
         </View>
       </TouchableOpacity>
 

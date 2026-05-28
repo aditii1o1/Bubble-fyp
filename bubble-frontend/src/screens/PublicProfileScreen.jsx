@@ -12,15 +12,16 @@ import { styles } from "./PublicProfileScreen.styles";
 import { postService } from "../services/postService";
 import { repostService } from "../services/repostService";
 import { userService } from "../services/userService";
-import { useAppContext } from "../context/AppContext";
+import { appActions, useAppContext } from "../context/AppContext";
 import { formatJoinedDate } from "../lib/utils";
 
 const DEFAULT_BIO =
   "Sharing thoughts and feelings in my bubble. Be kind and breathe.";
 
 export default function PublicProfileScreen() {
-  const { userId, nickname, avatar, username } = useLocalSearchParams();
-  const { state } = useAppContext();
+  const { userId, nickname, avatar, avatarUrl, username } = useLocalSearchParams();
+  const { state, dispatch } = useAppContext();
+  const safeUserId = String(Array.isArray(userId) ? userId[0] : userId || "").trim();
   const [activeTab, setActiveTab] = useState("posts");
   const [userBubbles, setUserBubbles] = useState([]);
   const [userReposts, setUserReposts] = useState([]);
@@ -28,53 +29,92 @@ export default function PublicProfileScreen() {
 
   useEffect(() => {
     let alive = true;
-    (async () => {
-      try {
-        if (!userId) return;
-        const [posts, reposts, prof] = await Promise.all([
-          postService.getUserPosts(String(userId), { pageSize: 20 }),
-          repostService.getUserReposts(String(userId), { pageSize: 20 }),
-          userService.getUserProfile(String(userId)),
-        ]);
-        if (!alive) return;
-        setUserBubbles(Array.isArray(posts) ? posts : []);
-        setUserReposts(Array.isArray(reposts) ? reposts : []);
-        setProfileFromDb(prof || null);
-      } catch (e) {
-        // Keep the screen usable even if one of the requests fails.
+    if (!safeUserId) return () => {
+      alive = false;
+    };
+
+    userService.getUserProfile(safeUserId).then((prof) => {
+      if (!alive) return;
+      setProfileFromDb(prof || null);
+      if (prof?.id) {
+        dispatch(appActions.setAuthorProfile(prof));
+        dispatch(
+          appActions.updatePostsAuthor(prof.id, {
+            nickname: prof.nickname,
+            avatar: prof.avatar,
+            avatarUrl: prof.avatarUrl || null,
+          })
+        );
       }
-    })();
+    }).catch(() => {
+      // Keep route/feed fallback visible if the profile request fails.
+    });
+
+    postService.getUserPosts(safeUserId, { pageSize: 20 }).then((posts) => {
+      if (alive) setUserBubbles(Array.isArray(posts) ? posts : []);
+    }).catch(() => {});
+
+    repostService.getUserReposts(safeUserId, { pageSize: 20 }).then((reposts) => {
+      if (alive) setUserReposts(Array.isArray(reposts) ? reposts : []);
+    }).catch(() => {});
+
     return () => {
       alive = false;
     };
-  }, [userId]);
+  }, [dispatch, safeUserId]);
 
   const profile = useMemo(() => {
+    const cachedProfile = state.authorProfiles?.[safeUserId] || null;
+    const ownProfile =
+      safeUserId && safeUserId === String(state.user?.uid || "")
+        ? { ...state.profile, id: safeUserId, uid: safeUserId }
+        : null;
+    const profileSource = profileFromDb || ownProfile || cachedProfile || null;
+    const paramNickname = Array.isArray(nickname) ? nickname[0] : nickname;
+    const paramUsername = Array.isArray(username) ? username[0] : username;
+    const paramAvatar = Array.isArray(avatar) ? avatar[0] : avatar;
+    const paramAvatarUrl = Array.isArray(avatarUrl) ? avatarUrl[0] : avatarUrl;
+
     return {
-      id: userId,
+      id: safeUserId,
       nickname:
-        profileFromDb?.nickname || nickname || userBubbles[0]?.nickname || "@anonymous",
+        profileSource?.nickname || paramNickname || userBubbles[0]?.nickname || "@anonymous",
       username:
-        profileFromDb?.username || username || "",
-      avatar: profileFromDb?.avatar || avatar || userBubbles[0]?.avatar || "cat",
-      avatarUrl: profileFromDb?.avatarUrl || userBubbles[0]?.avatarUrl || null,
-      bio: profileFromDb?.bio || DEFAULT_BIO,
-      createdAt: profileFromDb?.createdAt || null,
+        profileSource?.username || paramUsername || "",
+      avatar: profileSource?.avatar || paramAvatar || userBubbles[0]?.avatar || "cat",
+      avatarUrl: Object.prototype.hasOwnProperty.call(profileSource || {}, "avatarUrl")
+        ? profileSource?.avatarUrl || null
+        : paramAvatarUrl || userBubbles[0]?.avatarUrl || null,
+      bio: Object.prototype.hasOwnProperty.call(profileSource || {}, "bio")
+        ? profileSource?.bio || DEFAULT_BIO
+        : DEFAULT_BIO,
+      createdAt: profileSource?.createdAt || null,
     };
-  }, [avatar, nickname, profileFromDb, userBubbles, userId, username]);
+  }, [
+    avatar,
+    avatarUrl,
+    nickname,
+    profileFromDb,
+    safeUserId,
+    state.authorProfiles,
+    state.profile,
+    state.user?.uid,
+    userBubbles,
+    username,
+  ]);
 
   // If Firestore is slow/blocked, still show whatever we already have from the feed.
   const fallbackPosts = useMemo(() => {
-    const uid = String(userId || "");
+    const uid = safeUserId;
     if (!uid) return [];
     return (state.posts || []).filter((p) => p.userId === uid);
-  }, [state.posts, userId]);
+  }, [safeUserId, state.posts]);
 
   const fallbackReposts = useMemo(() => {
-    const uid = String(userId || "");
+    const uid = safeUserId;
     if (!uid) return [];
     return (state.reposts || []).filter((r) => r.userId === uid);
-  }, [state.reposts, userId]);
+  }, [safeUserId, state.reposts]);
 
   const shownPostsRaw = userBubbles.length ? userBubbles : fallbackPosts;
   const shownReposts = userReposts.length ? userReposts : fallbackReposts;

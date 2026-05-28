@@ -86,7 +86,11 @@ export default function ReportModal({ type = "post", onClose, onSubmit }) {
               style={styles.submitIcon}
             />
             <Text style={styles.submitButtonText}>
-              {isSubmitting ? "Submitting..." : "Submit Report"}
+              {isSubmitting
+                ? "Submitting..."
+                : type === "support"
+                  ? "Send Request"
+                  : "Submit Report"}
             </Text>
           </TouchableOpacity>
 

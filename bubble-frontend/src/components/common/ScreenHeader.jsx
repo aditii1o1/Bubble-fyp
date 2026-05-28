@@ -10,6 +10,7 @@ export default function ScreenHeader({
   rightIcon,
   onRightPress,
   rightAccessibilityLabel = "Header action",
+  rightComponent,
 }) {
   return (
     <View style={commonStyles.header}>
@@ -27,9 +28,13 @@ export default function ScreenHeader({
         <View style={commonStyles.iconButtonSpacer} />
       )}
 
-      <Text style={commonStyles.headerTitle}>{title}</Text>
+      <Text style={commonStyles.headerTitle} numberOfLines={1}>
+        {title}
+      </Text>
 
-      {rightIcon ? (
+      {rightComponent ? (
+        <View style={commonStyles.headerRightComponent}>{rightComponent}</View>
+      ) : rightIcon ? (
         <TouchableOpacity
           style={commonStyles.iconButton}
           onPress={onRightPress}

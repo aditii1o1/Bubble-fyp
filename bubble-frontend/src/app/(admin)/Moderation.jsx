@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { theme } from "../../constants/themes";
 import { commonStyles } from "../../styles/commonStyles";
 import ScreenHeader from "../../components/common/ScreenHeader";
+import AdminProfileMenu from "../../components/admin/AdminProfileMenu";
 import { useToast } from "../../context/ToastContext";
 import { confirmAlert } from "../../utils/alertUtils";
 import { api } from "../../services/apiClient";
@@ -122,7 +123,11 @@ export default function AdminModerationScreen() {
     <SafeAreaView style={commonStyles.screen}>
       <StatusBar barStyle="dark-content" />
 
-      <ScreenHeader title="Restricted Words" onBack={router.back} />
+      <ScreenHeader
+        title="Restricted Words"
+        onBack={router.back}
+        rightComponent={<AdminProfileMenu />}
+      />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.section}>

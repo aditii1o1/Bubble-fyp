@@ -11,9 +11,10 @@ export const styles = StyleSheet.create({
     paddingTop: theme.spacing.md,
     paddingBottom: theme.spacing.xs,
   },
-  brandLogo: {
-    height: 34,
-    width: 160,
+  brandText: {
+    fontSize: theme.fontSize.xxl,
+    fontFamily: theme.fontFamily.bold,
+    color: theme.colors.primaryPink,
   },
   searchContainer: {
     flexDirection: "row",

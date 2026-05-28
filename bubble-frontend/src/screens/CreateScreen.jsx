@@ -19,6 +19,7 @@ import { styles } from "./CreateScreen.styles";
 import { postService } from "../services/postService";
 import { cacheService } from "../services/cacheService";
 import { TAGS } from "../constants/tags";
+import { DEFAULT_REACTION_COUNTS } from "../constants/reactions";
 import { useToast } from "../context/ToastContext";
 import { moderationService } from "../services/moderationService";
 import DismissKeyboard from "../components/common/DismissKeyboard";
@@ -143,7 +144,7 @@ export default function CreateScreen() {
         title: String(formData.title || "").trim(),
         text: String(formData.text || "").trim(),
         tags: selectedTags.slice(0, 3),
-        reactions: { heart: 0 },
+        reactions: { ...DEFAULT_REACTION_COUNTS },
         commentCount: 0,
         comments: 0,
         viewCount: 0,

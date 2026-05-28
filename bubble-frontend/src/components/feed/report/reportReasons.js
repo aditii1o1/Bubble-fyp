@@ -15,5 +15,19 @@ export const REPORT_REASONS = {
     { id: "inappropriate", label: "Inappropriate content" },
     { id: "other", label: "Other" },
   ],
+  profile: [
+    { id: "impersonation", label: "Impersonation" },
+    { id: "harassment", label: "Harassment or bullying" },
+    { id: "privacy", label: "Privacy concern" },
+    { id: "inappropriate", label: "Inappropriate profile" },
+    { id: "other", label: "Other" },
+  ],
+  support: [
+    { id: "account", label: "Account help" },
+    { id: "posting", label: "Posting or feed issue" },
+    { id: "donation", label: "Donation or payment issue" },
+    { id: "safety", label: "Safety concern" },
+    { id: "other", label: "Other" },
+  ],
 };
 

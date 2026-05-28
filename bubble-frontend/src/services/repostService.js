@@ -11,7 +11,6 @@ function normalizeRepost(id, data) {
     originalBubbleId: data.originalBubbleId,
     originalText: data.originalText || "",
     overlayText: data.overlayText || "",
-    timeAgo: data.timeAgo || "just now",
     originalAuthor: data.originalAuthor || "@anonymous",
     createdAt: createdAt || new Date().toISOString(),
   };

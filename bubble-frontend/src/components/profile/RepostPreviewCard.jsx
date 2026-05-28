@@ -36,7 +36,6 @@ export default function RepostPreviewCard({ repost, onPress, onDelete }) {
         </View>
       ) : null}
 
-      <Text style={styles.time}>{repost.timeAgo}</Text>
     </TouchableOpacity>
   );
 }
@@ -78,11 +77,6 @@ const styles = StyleSheet.create({
     fontFamily: theme.fontFamily.regular,
     color: theme.colors.text,
     fontStyle: "italic",
-  },
-  time: {
-    fontSize: theme.fontSize.xs,
-    fontFamily: theme.fontFamily.regular,
-    color: theme.colors.textMuted,
   },
 });
 

@@ -1,6 +1,5 @@
 import React from "react";
 import { View, Text, TouchableOpacity, ScrollView } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { REACTION_OPTIONS } from "../../constants/reactions";
 import { styles } from "./ReactionPills.styles";
 
@@ -12,7 +11,7 @@ export default function ReactionPills({
 }) {
   const Content = (
     <View style={styles.row}>
-      {REACTION_OPTIONS.map(({ key, icon }) => {
+      {REACTION_OPTIONS.map(({ key, emoji }) => {
         const count = (reactions && reactions[key]) || 0;
         const isActive = activeReaction === key;
 
@@ -23,12 +22,9 @@ export default function ReactionPills({
             onPress={() => onReact?.(key)}
             activeOpacity={0.75}
           >
-            <Ionicons
-              name={isActive ? icon : `${icon}-outline`}
-              size={16}
-              color={isActive ? styles.pillIconActive.color : styles.pillIcon.color}
-              style={styles.pillIcon}
-            />
+            <Text style={[styles.pillIcon, isActive && styles.pillIconActive]}>
+              {emoji}
+            </Text>
             {count > 0 ? <Text style={styles.pillCount}>{count}</Text> : null}
           </TouchableOpacity>
         );

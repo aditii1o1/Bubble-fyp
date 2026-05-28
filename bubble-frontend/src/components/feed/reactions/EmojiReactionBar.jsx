@@ -1,9 +1,9 @@
 import React from "react";
-import { View, TouchableOpacity } from "react-native";
+import { View, Text, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { theme } from "../../../constants/themes";
 import { styles } from "./EmojiReactionBar.styles";
-import HeartLikeButton from "../../common/HeartLikeButton";
+import { REACTION_OPTIONS } from "../../../constants/reactions";
 
 export default function EmojiReactionBar({
   reactions,
@@ -12,17 +12,30 @@ export default function EmojiReactionBar({
   onRepost,
   onReport,
 }) {
-  const liked = activeReaction === "heart";
-  const likeCount = Number(reactions?.heart || 0);
   return (
     <View style={styles.container}>
       <View style={styles.row}>
         <View style={styles.reactions}>
-          <HeartLikeButton
-            liked={liked}
-            count={likeCount}
-            onPress={() => onReact?.("heart")}
-          />
+          {REACTION_OPTIONS.map((reaction) => {
+            const isActive = activeReaction === reaction.key;
+            const count = Number(reactions?.[reaction.key] || 0);
+
+            return (
+              <TouchableOpacity
+                key={reaction.key}
+                style={[styles.reactionButton, isActive && styles.reactionButtonActive]}
+                onPress={() => onReact?.(reaction.key)}
+                activeOpacity={0.78}
+                accessibilityRole="button"
+                accessibilityLabel={`${reaction.label} reaction`}
+              >
+                <Text style={styles.reactionEmoji}>{reaction.emoji}</Text>
+                <Text style={[styles.reactionCount, isActive && styles.reactionCountActive]}>
+                  {count}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         <View style={styles.actionButtons}>

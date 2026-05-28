@@ -11,12 +11,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { theme } from "../../constants/themes";
-import { appActions, useAppContext } from "../../context/AppContext";
 import { commonStyles } from "../../styles/commonStyles";
-import { confirmAlert } from "../../utils/alertUtils";
-import { authService } from "../../services/authService";
 import { adminService } from "../../services/adminService";
 import AdminActivityChart from "../../components/admin/AdminActivityChart";
+import AdminProfileMenu from "../../components/admin/AdminProfileMenu";
 
 function SummaryCard({ label, value, tone = theme.colors.primaryPink }) {
   return (
@@ -44,7 +42,6 @@ function QuickActionCard({ title, subtitle, onPress, accent = theme.colors.prima
 }
 
 export default function AdminDashboard() {
-  const { state, dispatch } = useAppContext();
   const [counts, setCounts] = useState({
     openReports: 0,
     resolvedReports: 0,
@@ -72,25 +69,6 @@ export default function AdminDashboard() {
       };
     }, [])
   );
-
-  const confirmLogout = useCallback(() => {
-    confirmAlert({
-      title: "Log out",
-      message: "Are you sure you want to log out of admin?",
-      confirmText: "Log out",
-      confirmStyle: "destructive",
-      onConfirm: () => {
-        (async () => {
-          try {
-            dispatch(appActions.logout());
-            await authService.logout();
-          } finally {
-            router.replace("/(auth)/Login");
-          }
-        })();
-      },
-    });
-  }, [dispatch]);
 
   const quickActions = useMemo(
     () => [
@@ -135,25 +113,15 @@ export default function AdminDashboard() {
         contentContainerStyle={styles.content}
       >
         <View style={styles.heroCard}>
-          <View style={styles.heroTopRow}>
-            <View style={styles.heroBadge}>
-              <Text style={styles.heroBadgeText}>Admin workspace</Text>
+          <View style={styles.heroHeader}>
+            <View style={styles.heroCopy}>
+              <Text style={styles.heroTitle}>Moderation dashboard</Text>
+              <Text style={styles.heroSubtitle}>
+                Track community health, review issues faster, and keep the platform safe.
+              </Text>
             </View>
-
-            <TouchableOpacity
-              style={styles.logoutButton}
-              onPress={confirmLogout}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.logoutText}>Log out</Text>
-            </TouchableOpacity>
+            <AdminProfileMenu />
           </View>
-
-          <Text style={styles.heroTitle}>Moderation dashboard</Text>
-          <Text style={styles.heroSubtitle}>
-            Track community health, review issues faster, and keep the platform safe.
-          </Text>
-          <Text style={styles.heroMeta}>{state.user?.email}</Text>
         </View>
 
         <View style={styles.summaryGrid}>
@@ -218,13 +186,15 @@ export default function AdminDashboard() {
           onPress={() => router.push("/(admin)/Donations")}
           activeOpacity={0.85}
         >
-          <View>
+          <View style={styles.secondaryPanelBody}>
             <Text style={styles.secondaryPanelTitle}>Donations Overview</Text>
             <Text style={styles.secondaryPanelText}>
               Review donations, payment state, and donor history in one place.
             </Text>
           </View>
-          <Text style={styles.secondaryPanelCta}>Open</Text>
+          <View style={styles.secondaryPanelCtaPill}>
+            <Text style={styles.secondaryPanelCta}>Open</Text>
+          </View>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -238,50 +208,23 @@ const styles = StyleSheet.create({
   },
   heroCard: {
     borderRadius: theme.borderRadius.xxl,
-    padding: theme.spacing.xl,
+    padding: theme.spacing.lg,
     borderWidth: 1,
     borderColor: theme.colors.borderLight,
     backgroundColor: theme.colors.surface,
     ...theme.shadow.small,
   },
-  heroTopRow: {
+  heroHeader: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
+    gap: theme.spacing.md,
   },
-  heroBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.xs,
-    borderRadius: theme.borderRadius.round,
-    backgroundColor: theme.colors.bgCream,
-    borderWidth: 1,
-    borderColor: theme.colors.borderLight,
-  },
-  heroBadgeText: {
-    fontSize: theme.fontSize.xs,
-    fontFamily: theme.fontFamily.bold,
-    color: theme.colors.textMuted,
-  },
-  logoutButton: {
-    minHeight: 36,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.round,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: theme.colors.bgCream,
-    borderWidth: 1,
-    borderColor: theme.colors.borderLight,
-  },
-  logoutText: {
-    fontSize: theme.fontSize.xs,
-    fontFamily: theme.fontFamily.bold,
-    color: theme.colors.text,
+  heroCopy: {
+    flex: 1,
+    minWidth: 0,
   },
   heroTitle: {
-    marginTop: theme.spacing.lg,
     fontSize: theme.fontSize.xxxl,
     fontFamily: theme.fontFamily.bold,
     color: theme.colors.text,
@@ -292,13 +235,6 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     fontFamily: theme.fontFamily.regular,
     color: theme.colors.textLight,
-    maxWidth: 320,
-  },
-  heroMeta: {
-    marginTop: theme.spacing.md,
-    fontSize: theme.fontSize.xs,
-    fontFamily: theme.fontFamily.regular,
-    color: theme.colors.textMuted,
   },
   summaryGrid: {
     flexDirection: "row",
@@ -386,6 +322,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    gap: theme.spacing.md,
+  },
+  secondaryPanelBody: {
+    flex: 1,
+    minWidth: 0,
   },
   secondaryPanelTitle: {
     fontSize: theme.fontSize.md,
@@ -394,14 +335,24 @@ const styles = StyleSheet.create({
   },
   secondaryPanelText: {
     marginTop: theme.spacing.xs,
-    maxWidth: 280,
     fontSize: theme.fontSize.sm,
     lineHeight: 20,
     fontFamily: theme.fontFamily.regular,
     color: theme.colors.textMuted,
+    flexShrink: 1,
+  },
+  secondaryPanelCtaPill: {
+    flexShrink: 0,
+    minHeight: 34,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.round,
+    backgroundColor: theme.colors.bgCream,
+    borderWidth: 1,
+    borderColor: theme.colors.borderLight,
+    alignItems: "center",
+    justifyContent: "center",
   },
   secondaryPanelCta: {
-    marginLeft: theme.spacing.md,
     fontSize: theme.fontSize.sm,
     fontFamily: theme.fontFamily.bold,
     color: theme.colors.primaryPink,

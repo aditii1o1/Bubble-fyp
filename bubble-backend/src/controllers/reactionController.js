@@ -2,34 +2,44 @@ import mongoose from "mongoose";
 import { Post } from "../models/Post.js";
 import { PostReaction } from "../models/PostReaction.js";
 
-function safeKey(k) {
-  return String(k || "").trim();
+const REACTION_KEYS = ["heart", "bulb", "hug"];
+
+function normalizeReactionKey(key) {
+  const nextKey = String(key || "").trim();
+  return REACTION_KEYS.includes(nextKey) ? nextKey : "heart";
+}
+
+function getReactionCounts(reactions = {}) {
+  return REACTION_KEYS.reduce((acc, key) => {
+    const value = Number(reactions?.[key] || 0);
+    acc[key] = Number.isFinite(value) ? value : 0;
+    return acc;
+  }, {});
 }
 
 const reactionController = {
   togglePostReaction: async (req, res, next) => {
     try {
       const postId = String(req.params?.postId || "");
-      const reactionKey = "heart";
+      const reactionKey = normalizeReactionKey(req.body?.reactionKey);
       if (!mongoose.isValidObjectId(postId)) return res.status(400).json({ message: "Invalid post" });
 
       const postDoc = await Post.findById(postId);
       if (!postDoc) return res.status(404).json({ message: "Post not found" });
 
       const existingReactionDoc = await PostReaction.findOne({ postId, userId: req.user._id });
-      const hasAnyReaction = Boolean(existingReactionDoc);
-      const nextReactionKey = hasAnyReaction ? null : reactionKey;
+      const previousKey = existingReactionDoc ? normalizeReactionKey(existingReactionDoc.key) : null;
+      const nextReactionKey = previousKey === reactionKey ? null : reactionKey;
 
-      const reactions = {
-        heart: Number(postDoc.reactions?.heart || 0),
-      };
-
-      if (hasAnyReaction) {
-        reactions.heart = Math.max(0, Number(reactions.heart || 0) - 1);
+      const reactions = getReactionCounts(postDoc.reactions);
+      if (previousKey) {
+        reactions[previousKey] = Math.max(0, Number(reactions[previousKey] || 0) - 1);
       }
-      if (nextReactionKey) reactions.heart = Number(reactions.heart || 0) + 1;
+      if (nextReactionKey) {
+        reactions[nextReactionKey] = Number(reactions[nextReactionKey] || 0) + 1;
+      }
 
-      postDoc.reactions = { heart: reactions.heart };
+      postDoc.reactions = reactions;
       await postDoc.save();
 
       if (nextReactionKey) {
@@ -62,7 +72,7 @@ const reactionController = {
       }).lean();
       const map = {};
       reactionDocs.forEach((reactionDoc) => {
-        map[String(reactionDoc.postId)] = "heart";
+        map[String(reactionDoc.postId)] = normalizeReactionKey(reactionDoc.key);
       });
       return res.json({ map });
     } catch (e) {

@@ -3,21 +3,35 @@ import { Post } from "../models/Post.js";
 import { checkText } from "../utils/moderation.js";
 import { PostReaction } from "../models/PostReaction.js";
 
+const REACTION_KEYS = ["heart", "bulb", "hug"];
+
+function formatReactions(reactions = {}) {
+  return REACTION_KEYS.reduce((acc, key) => {
+    const value = Number(reactions?.[key] || 0);
+    acc[key] = Number.isFinite(value) ? value : 0;
+    return acc;
+  }, {});
+}
+
+function getAuthor(postDoc) {
+  return postDoc?.userId && typeof postDoc.userId === "object" && postDoc.userId._id
+    ? postDoc.userId
+    : null;
+}
+
 function formatPost(postDoc) {
-  const legacy = postDoc.reactions || {};
-  const legacyTotal =
-    Number(legacy.heart || 0) + Number(legacy.bulb || 0) + Number(legacy.hug || 0);
+  const author = getAuthor(postDoc);
 
   return {
     id: String(postDoc._id),
-    userId: String(postDoc.userId),
-    nickname: postDoc.nickname || "@anonymous",
-    avatar: postDoc.avatar || "cat",
-    avatarUrl: postDoc.avatarUrl || null,
+    userId: String(author?._id || postDoc.userId),
+    nickname: author?.nickname || postDoc.nickname || "@anonymous",
+    avatar: author?.avatar || postDoc.avatar || "cat",
+    avatarUrl: author?.avatarUrl || postDoc.avatarUrl || null,
     title: postDoc.title || "",
     text: postDoc.text || "",
     tags: Array.isArray(postDoc.tags) ? postDoc.tags : [],
-    reactions: { heart: legacyTotal },
+    reactions: formatReactions(postDoc.reactions),
     commentCount: Number(postDoc.commentCount || 0),
     comments: Number(postDoc.commentCount || 0),
     viewCount: Number(postDoc.viewCount || 0),
@@ -59,6 +73,7 @@ const postController = {
       const postDocs = await Post.find({ expiresAt: { $gt: now } })
         .sort({ createdAt: -1 })
         .limit(pageSize)
+        .populate("userId", "nickname avatar avatarUrl")
         .lean();
 
       const posts = postDocs.map((postDoc) => formatPost(postDoc));
@@ -81,6 +96,7 @@ const postController = {
       const postDocs = await Post.find({ userId, expiresAt: { $gt: now } })
         .sort({ createdAt: -1 })
         .limit(pageSize)
+        .populate("userId", "nickname avatar avatarUrl")
         .lean();
       const posts = postDocs.map((postDoc) => formatPost(postDoc));
       return res.json({ posts });
@@ -92,7 +108,9 @@ const postController = {
   getPostById: async (req, res, next) => {
     try {
       const postId = typeof req.params?.postId === "string" ? req.params.postId : "";
-      const postDoc = await Post.findById(postId).lean();
+      const postDoc = await Post.findById(postId)
+        .populate("userId", "nickname avatar avatarUrl")
+        .lean();
       if (!postDoc) return res.status(404).json({ message: "Post not found" });
       return res.json({ post: formatPost(postDoc) });
     } catch (e) {

@@ -6,12 +6,11 @@ import { commonStyles, withAlpha } from "../../styles/commonStyles";
 export default function AdminActivityChart({ items = [] }) {
   const chartMeta = useMemo(() => {
     const values = items.map((item) => Number(item?.users || 0));
-    const total = values.reduce((sum, value) => sum + value, 0);
     const maxValue = Math.max(1, ...values);
     const latest = values[values.length - 1] || 0;
     const previous = values[values.length - 2] || 0;
     const delta = latest - previous;
-    return { total, maxValue, delta };
+    return { maxValue, delta };
   }, [items]);
 
   if (!items.length) {
@@ -29,12 +28,8 @@ export default function AdminActivityChart({ items = [] }) {
       <View style={styles.headerRow}>
         <View style={styles.headerCopy}>
           <Text style={styles.eyebrow}>Growth</Text>
-          <Text style={styles.title}>User growth</Text>
+          <Text style={styles.title}>User growth chart</Text>
           <Text style={styles.subtitle}>New accounts over the last 7 days.</Text>
-        </View>
-        <View style={styles.metricPill}>
-          <Text style={styles.metricValue}>{chartMeta.total}</Text>
-          <Text style={styles.metricLabel}>new users</Text>
         </View>
       </View>
 
@@ -105,26 +100,6 @@ const styles = StyleSheet.create({
   subtitle: {
     marginTop: theme.spacing.xs,
     fontSize: theme.fontSize.sm,
-    fontFamily: theme.fontFamily.regular,
-    color: theme.colors.textMuted,
-  },
-  metricPill: {
-    alignItems: "center",
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.borderRadius.lg,
-    backgroundColor: theme.colors.bgCream,
-    borderWidth: 1,
-    borderColor: theme.colors.borderLight,
-  },
-  metricValue: {
-    fontSize: theme.fontSize.xl,
-    fontFamily: theme.fontFamily.bold,
-    color: theme.colors.text,
-  },
-  metricLabel: {
-    marginTop: 2,
-    fontSize: theme.fontSize.xs,
     fontFamily: theme.fontFamily.regular,
     color: theme.colors.textMuted,
   },

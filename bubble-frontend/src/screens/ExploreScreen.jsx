@@ -5,16 +5,14 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import TagChip from "../components/feed/TagChip";
 import BubbleCard from "../components/feed/BubbleCard";
 import { theme } from "../constants/themes";
+import { DEFAULT_REACTION_COUNTS } from "../constants/reactions";
 import { styles } from "./ExploreScreen.styles";
-
-const logoImage = require("../../assets/logo.png");
 
 const ExploreScreen = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -40,7 +38,7 @@ const ExploreScreen = () => {
       text: "Having my first panic attack during an exam. Professor was understanding but I'm so embarrassed.",
       preview: "Having my first panic attack during an exam...",
       tags: ["#college", "#anxiety", "#mentalhealth"],
-      reactions: { heart: 245 },
+      reactions: { ...DEFAULT_REACTION_COUNTS, heart: 245 },
       commentCount: 42,
     },
     {
@@ -49,7 +47,7 @@ const ExploreScreen = () => {
       text: "6 months into my first dev job and the imposter syndrome is real. Everyone seems to know so much more than me.",
       preview: "6 months into my first dev job and the imposter syndrome...",
       tags: ["#tech", "#coding", "#work"],
-      reactions: { heart: 189 },
+      reactions: { ...DEFAULT_REACTION_COUNTS, heart: 189 },
       commentCount: 31,
     },
   ];
@@ -65,7 +63,7 @@ const ExploreScreen = () => {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.brandRow}>
-        <Image source={logoImage} style={styles.brandLogo} resizeMode="contain" />
+        <Text style={styles.brandText}>Bubble</Text>
       </View>
 
       {/* Search Bar */}

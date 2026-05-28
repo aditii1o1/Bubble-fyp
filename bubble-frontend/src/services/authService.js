@@ -17,6 +17,7 @@ function toProfile(user) {
     avatar: user.avatar || "cat",
     avatarUrl: user.avatarUrl || null,
     createdAt: user.createdAt || null,
+    updatedAt: user.updatedAt || null,
   };
 }
 

@@ -146,6 +146,7 @@ function toUserResponse(userDoc) {
     avatar: userDoc.avatar || "cat",
     avatarUrl: userDoc.avatarUrl || null,
     createdAt: userDoc.createdAt ? new Date(userDoc.createdAt).toISOString() : null,
+    updatedAt: userDoc.updatedAt ? new Date(userDoc.updatedAt).toISOString() : null,
   };
 }
 

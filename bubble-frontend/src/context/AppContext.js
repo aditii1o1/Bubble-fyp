@@ -5,6 +5,7 @@ import { isAdminEmail } from "../config/admin";
 import { userService } from "../services/userService";
 import { notificationService } from "../services/notificationService";
 import { useToast } from "./ToastContext";
+import { DEFAULT_REACTION_COUNTS, normalizeReactionKey } from "../constants/reactions";
 
 const AppContext = createContext(null);
 
@@ -26,6 +27,7 @@ const initialState = {
   commentsByPostId: {},
   myCommentReactions: {},
   myReactions: {},
+  authorProfiles: {},
   notifications: [],
 };
 
@@ -54,6 +56,88 @@ function mergeIncomingPostsWithPending(existingPosts, incomingPosts) {
   return [...preservedPending, ...nextPosts];
 }
 
+function normalizeReactionCounts(reactions = {}) {
+  const acc = Object.keys(DEFAULT_REACTION_COUNTS).reduce((next, key) => {
+    const value = Number(reactions?.[key] || 0);
+    next[key] = Number.isFinite(value) ? value : 0;
+    return next;
+  }, {});
+
+  Object.entries(reactions || {}).forEach(([key, value]) => {
+    if (Object.prototype.hasOwnProperty.call(acc, key)) return;
+    const count = Number(value || 0);
+    if (Number.isFinite(count) && count > 0) acc[key] = count;
+  });
+
+  return acc;
+}
+
+function normalizeAuthorProfile(profile = {}) {
+  const id = String(profile?.id || profile?.uid || "").trim();
+  if (!id) return null;
+
+  return {
+    id,
+    uid: id,
+    nickname: profile.nickname || "@anonymous",
+    username: profile.username || "",
+    bio: Object.prototype.hasOwnProperty.call(profile, "bio")
+      ? String(profile.bio || "")
+      : "",
+    avatar: profile.avatar || "cat",
+    avatarUrl: profile.avatarUrl || null,
+    createdAt: profile.createdAt || null,
+    updatedAt: profile.updatedAt || null,
+  };
+}
+
+function mergeAuthorProfile(previous, next) {
+  const normalized = normalizeAuthorProfile(next);
+  if (!normalized) return previous || null;
+
+  return {
+    ...(previous || {}),
+    ...normalized,
+    bio: Object.prototype.hasOwnProperty.call(next || {}, "bio")
+      ? String(next.bio || "")
+      : previous?.bio || normalized.bio || "",
+    avatarUrl: Object.prototype.hasOwnProperty.call(next || {}, "avatarUrl")
+      ? next.avatarUrl || null
+      : previous?.avatarUrl ?? normalized.avatarUrl ?? null,
+  };
+}
+
+function applyAuthorProfilesToPosts(posts = [], authorProfiles = {}) {
+  if (!Array.isArray(posts) || !posts.length) return Array.isArray(posts) ? posts : [];
+
+  return posts.map((post) => {
+    const userId = String(post?.userId || "");
+    const profile = userId ? authorProfiles[userId] : null;
+    if (!profile) return post;
+
+    const nextNickname = profile.nickname || post.nickname;
+    const nextAvatar = profile.avatar || post.avatar;
+    const nextAvatarUrl = Object.prototype.hasOwnProperty.call(profile, "avatarUrl")
+      ? profile.avatarUrl || null
+      : post.avatarUrl ?? null;
+
+    if (
+      post.nickname === nextNickname &&
+      post.avatar === nextAvatar &&
+      (post.avatarUrl || null) === nextAvatarUrl
+    ) {
+      return post;
+    }
+
+    return {
+      ...post,
+      nickname: nextNickname,
+      avatar: nextAvatar,
+      avatarUrl: nextAvatarUrl,
+    };
+  });
+}
+
 function appReducer(state, action) {
   switch (action.type) {
     case "LOGIN":
@@ -71,54 +155,150 @@ function appReducer(state, action) {
     case "SET_LOADING":
       return { ...state, isLoading: action.payload };
     case "SET_PROFILE":
-      return {
+    {
+      const nextState = {
         ...state,
         profile: { ...state.profile, ...action.payload },
       };
-    case "UPDATE_MY_POSTS_AUTHOR": {
-      const { uid, nickname, avatar, avatarUrl } = action.payload || {};
-      if (!uid) return state;
+      const profileId = action.payload?.uid || action.payload?.id || state.user?.uid;
+      if (!profileId) return nextState;
+
+      const authorProfile = mergeAuthorProfile(state.authorProfiles[profileId], {
+        id: profileId,
+        ...action.payload,
+      });
+      if (!authorProfile) return nextState;
+
+      const authorProfiles = {
+        ...state.authorProfiles,
+        [authorProfile.id]: authorProfile,
+      };
+
       return {
-        ...state,
-        posts: state.posts.map((p) => {
-          if (p.userId !== uid) return p;
-          return {
-            ...p,
-            nickname: nickname || p.nickname,
-            avatar: avatar || p.avatar,
-            avatarUrl: avatarUrl ?? p.avatarUrl ?? null,
-          };
-        }),
+        ...nextState,
+        authorProfiles,
+        posts: applyAuthorProfilesToPosts(nextState.posts, authorProfiles),
       };
     }
-    case "SET_AVATAR":
+    case "UPDATE_MY_POSTS_AUTHOR":
+    case "UPDATE_POSTS_AUTHOR": {
+      const { uid, nickname, avatar, avatarUrl } = action.payload || {};
+      if (!uid) return state;
+      const authorProfile = mergeAuthorProfile(state.authorProfiles[uid], action.payload);
+      const authorProfiles = authorProfile
+        ? { ...state.authorProfiles, [authorProfile.id]: authorProfile }
+        : state.authorProfiles;
+      let changed = false;
+      const posts = state.posts.map((p) => {
+        if (p.userId !== uid) return p;
+
+        const nextNickname = nickname || p.nickname;
+        const nextAvatar = avatar || p.avatar;
+        const nextAvatarUrl = Object.prototype.hasOwnProperty.call(
+          action.payload || {},
+          "avatarUrl"
+        )
+          ? avatarUrl || null
+          : p.avatarUrl ?? null;
+
+        if (
+          p.nickname === nextNickname &&
+          p.avatar === nextAvatar &&
+          (p.avatarUrl || null) === nextAvatarUrl
+        ) {
+          return p;
+        }
+
+        changed = true;
+        return {
+          ...p,
+          nickname: nextNickname,
+          avatar: nextAvatar,
+          avatarUrl: nextAvatarUrl,
+        };
+      });
+
+      if (!changed) {
+        return authorProfiles === state.authorProfiles ? state : { ...state, authorProfiles };
+      }
       return {
         ...state,
+        authorProfiles,
+        posts,
+      };
+    }
+    case "SET_AVATAR": {
+      const uid = state.user?.uid;
+      const authorProfile = uid
+        ? mergeAuthorProfile(state.authorProfiles[uid], {
+            id: uid,
+            avatar: action.payload,
+            avatarUrl: null,
+          })
+        : null;
+      const authorProfiles = authorProfile
+        ? { ...state.authorProfiles, [authorProfile.id]: authorProfile }
+        : state.authorProfiles;
+      return {
+        ...state,
+        authorProfiles,
         profile: { ...state.profile, avatar: action.payload, avatarUrl: null },
         posts: state.posts.map((post) => {
-          if (!state.user?.uid) return post;
-          return post.userId === state.user.uid
+          if (!uid) return post;
+          return post.userId === uid
             ? { ...post, avatar: action.payload, avatarUrl: null }
             : post;
         }),
       };
+    }
     case "SET_NICKNAME":
       return {
         ...state,
         profile: { ...state.profile, nickname: action.payload },
       };
+    case "SET_AUTHOR_PROFILE": {
+      const authorProfile = mergeAuthorProfile(
+        state.authorProfiles[action.payload?.id || action.payload?.uid],
+        action.payload
+      );
+      if (!authorProfile) return state;
+      const authorProfiles = {
+        ...state.authorProfiles,
+        [authorProfile.id]: authorProfile,
+      };
+      return {
+        ...state,
+        authorProfiles,
+        posts: applyAuthorProfilesToPosts(state.posts, authorProfiles),
+      };
+    }
     case "SET_POSTS":
-      return { ...state, posts: mergeIncomingPostsWithPending(state.posts, action.payload) };
+      return {
+        ...state,
+        posts: applyAuthorProfilesToPosts(
+          mergeIncomingPostsWithPending(state.posts, action.payload),
+          state.authorProfiles
+        ),
+      };
     case "SET_REPOSTS":
       return { ...state, reposts: action.payload };
     case "ADD_POST":
-      return { ...state, posts: [action.payload, ...state.posts] };
+      return {
+        ...state,
+        posts: applyAuthorProfilesToPosts(
+          [action.payload, ...state.posts],
+          state.authorProfiles
+        ),
+      };
     case "REPLACE_POST": {
       const { tempId, post } = action.payload || {};
       if (!tempId || !post) return state;
       return {
         ...state,
-        posts: state.posts.map((p) => (p.id === tempId ? post : p)),
+        posts: applyAuthorProfilesToPosts(
+          state.posts.map((p) => (p.id === tempId ? post : p)),
+          state.authorProfiles
+        ),
       };
     }
     case "DELETE_POST":
@@ -127,21 +307,22 @@ function appReducer(state, action) {
         posts: state.posts.filter((post) => post.id !== action.payload),
       };
     case "TOGGLE_REACTION": {
-      const { postId } = action.payload;
+      const { postId, reactionKey } = action.payload;
+      const requestedKey = normalizeReactionKey(reactionKey);
       const prev = state.myReactions[postId] || null;
-      const next = prev === "heart" ? null : "heart";
+      const next = prev === requestedKey ? null : requestedKey;
 
       const posts = state.posts.map((post) => {
         if (post.id !== postId) return post;
 
-        const reactions = { ...(post.reactions || { heart: 0 }) };
-        const current = Number(reactions.heart || 0);
-        const nextCount = next ? current + 1 : Math.max(0, current - 1);
-        return { ...post, reactions: { heart: nextCount } };
+        const reactions = normalizeReactionCounts(post.reactions);
+        if (prev) reactions[prev] = Math.max(0, Number(reactions[prev] || 0) - 1);
+        if (next) reactions[next] = Number(reactions[next] || 0) + 1;
+        return { ...post, reactions };
       });
 
       const myReactions = { ...state.myReactions };
-      if (next) myReactions[postId] = "heart";
+      if (next) myReactions[postId] = next;
       else delete myReactions[postId];
 
       return { ...state, posts, myReactions };
@@ -208,12 +389,18 @@ function appReducer(state, action) {
         },
       };
     }
-    case "SET_MY_REACTIONS":
-      return { ...state, myReactions: action.payload || {} };
+    case "SET_MY_REACTIONS": {
+      const entries = Object.entries(action.payload || {});
+      const myReactions = entries.reduce((acc, [postId, reactionKey]) => {
+        if (reactionKey) acc[postId] = normalizeReactionKey(reactionKey);
+        return acc;
+      }, {});
+      return { ...state, myReactions };
+    }
     case "SET_MY_REACTION": {
       const { postId, reactionKey } = action.payload;
       const myReactions = { ...state.myReactions };
-      if (reactionKey) myReactions[postId] = reactionKey;
+      if (reactionKey) myReactions[postId] = normalizeReactionKey(reactionKey);
       else delete myReactions[postId];
       return { ...state, myReactions };
     }
@@ -221,7 +408,9 @@ function appReducer(state, action) {
       const { postId, reactions } = action.payload;
       return {
         ...state,
-        posts: state.posts.map((p) => (p.id === postId ? { ...p, reactions } : p)),
+        posts: state.posts.map((p) =>
+          p.id === postId ? { ...p, reactions: normalizeReactionCounts(reactions) } : p
+        ),
       };
     }
     case "SET_COMMENT_REACTIONS": {
@@ -487,6 +676,14 @@ export const appActions = {
   updateMyPostsAuthor: (uid, updates) => ({
     type: "UPDATE_MY_POSTS_AUTHOR",
     payload: { uid, ...(updates || {}) },
+  }),
+  updatePostsAuthor: (uid, updates) => ({
+    type: "UPDATE_POSTS_AUTHOR",
+    payload: { uid, ...(updates || {}) },
+  }),
+  setAuthorProfile: (profile) => ({
+    type: "SET_AUTHOR_PROFILE",
+    payload: profile,
   }),
   setAvatar: (avatar) => ({ type: "SET_AVATAR", payload: avatar }),
   setNickname: (nickname) => ({ type: "SET_NICKNAME", payload: nickname }),

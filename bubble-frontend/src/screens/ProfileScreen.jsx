@@ -57,9 +57,14 @@ export default function ProfileScreen() {
     // Prefer the in-memory copy (it updates instantly for reactions/comments).
     return primary.map((p) => {
       const live = (state.posts || []).find((x) => x.id === p.id);
-      return live || p;
+      return {
+        ...(live || p),
+        nickname,
+        avatar,
+        avatarUrl,
+      };
     });
-  }, [state.posts, uid, userPosts]);
+  }, [avatar, avatarUrl, nickname, state.posts, uid, userPosts]);
 
   const reposts = useMemo(() => {
     if (!uid) return [];
@@ -83,13 +88,33 @@ export default function ProfileScreen() {
 
   const syncProfileData = useCallback(async () => {
     if (!uid) return;
-    const [posts, repostsList] = await Promise.all([
+    const [me, posts, repostsList] = await Promise.all([
+      userService.getMe(),
       postService.getUserPosts(uid, { pageSize: 20 }),
       repostService.getUserReposts(uid, { pageSize: 20 }),
     ]);
+    if (me?.id) {
+      const updates = {
+        uid: me.id,
+        email: me.email,
+        role: me.role,
+        banned: !!me.banned,
+        onboarded: !!me.onboarded,
+        username: me.username || "",
+        nickname: me.nickname || "@anonymous",
+        bio: me.bio || "",
+        avatar: me.avatar || "cat",
+        avatarUrl: me.avatarUrl || null,
+        createdAt: me.createdAt || state.profile?.createdAt || null,
+        updatedAt: me.updatedAt || null,
+      };
+      dispatch(appActions.setProfile(updates));
+      dispatch(appActions.setAuthorProfile(updates));
+      cacheService.saveUser(updates).catch(() => {});
+    }
     setUserPosts(Array.isArray(posts) ? posts : []);
     dispatch(appActions.setReposts(Array.isArray(repostsList) ? repostsList : []));
-  }, [dispatch, uid]);
+  }, [dispatch, state.profile?.createdAt, uid]);
 
   const onRefresh = useCallback(() => {
     (async () => {
@@ -116,15 +141,32 @@ export default function ProfileScreen() {
     dispatch(appActions.setAvatar(avatarKey));
     (async () => {
       try {
-        await userService.updateProfile({ avatar: avatarKey, avatarUrl: null });
-        await cacheService.saveUser({
-          ...state.profile,
-          uid: state.user?.uid,
-          email,
-          role: state.role,
-          avatar: avatarKey,
-          avatarUrl: null,
-        });
+        const me = await userService.updateProfile({ avatar: avatarKey, avatarUrl: null });
+        if (!me?.id) throw new Error("Could not update avatar.");
+        const updates = {
+          uid: me.id,
+          email: me.email,
+          role: me.role,
+          banned: !!me.banned,
+          onboarded: !!me.onboarded,
+          username: me.username || "",
+          nickname: me.nickname || "@anonymous",
+          bio: me.bio || "",
+          avatar: me.avatar || "cat",
+          avatarUrl: me.avatarUrl || null,
+          createdAt: me.createdAt || state.profile.createdAt || null,
+          updatedAt: me.updatedAt || null,
+        };
+        dispatch(appActions.setProfile(updates));
+        dispatch(appActions.setAuthorProfile(updates));
+        await Promise.all([
+          cacheService.saveUser(updates),
+          cacheService.updatePostsAuthor(uid, {
+            nickname: updates.nickname,
+            avatar: updates.avatar,
+            avatarUrl: updates.avatarUrl,
+          }),
+        ]);
       } catch (e) {
         showToast("Could not update avatar. Please try again.", { type: "error" });
       }
@@ -162,14 +204,24 @@ export default function ProfileScreen() {
           avatar: me.avatar || "cat",
           avatarUrl: me.avatarUrl || null,
           createdAt: me.createdAt || state.profile.createdAt || null,
+          updatedAt: me.updatedAt || null,
         };
 
         dispatch(appActions.setProfile(updates));
-        dispatch(appActions.updateMyPostsAuthor(uid, {
+        dispatch(appActions.setAuthorProfile(updates));
+        dispatch(appActions.updatePostsAuthor(uid, {
+          nickname: updates.nickname,
           avatar: updates.avatar,
           avatarUrl: updates.avatarUrl,
         }));
-        await cacheService.saveUser(updates);
+        await Promise.all([
+          cacheService.saveUser(updates),
+          cacheService.updatePostsAuthor(uid, {
+            nickname: updates.nickname,
+            avatar: updates.avatar,
+            avatarUrl: updates.avatarUrl,
+          }),
+        ]);
         showToast("Profile photo updated!", { type: "success" });
         setShowAvatarPicker(false);
       } catch (e) {
@@ -178,7 +230,7 @@ export default function ProfileScreen() {
         setIsUploadingAvatar(false);
       }
     })();
-  }, [dispatch, showToast, uid]);
+  }, [dispatch, showToast, state.profile.createdAt, uid]);
 
 	  const handleDeleteBubble = (bubbleId) => {
 	    confirmAlert({
@@ -309,6 +361,7 @@ export default function ProfileScreen() {
 
         <ProfileSettingsSection
           onPrivacyPress={() => router.push("/privacy")}
+          onHelpPress={() => router.push("/support")}
           onReportProblem={handleReport}
           onLogout={handleLogout}
         />

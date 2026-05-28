@@ -139,6 +139,28 @@ export const cacheService = {
 
   savePosts: async (posts) => setJson(KEYS.RECENT_POSTS, posts),
   getPosts: async () => getJson(KEYS.RECENT_POSTS),
+  updatePostsAuthor: async (uid, updates = {}) => {
+    const userId = String(uid || "");
+    if (!userId) return [];
+
+    const posts = await getJson(KEYS.RECENT_POSTS);
+    if (!Array.isArray(posts) || posts.length === 0) return [];
+
+    const nextPosts = posts.map((post) => {
+      if (String(post?.userId || "") !== userId) return post;
+      return {
+        ...post,
+        nickname: updates.nickname || post.nickname,
+        avatar: updates.avatar || post.avatar,
+        avatarUrl: Object.prototype.hasOwnProperty.call(updates, "avatarUrl")
+          ? updates.avatarUrl || null
+          : post.avatarUrl ?? null,
+      };
+    });
+
+    await setJson(KEYS.RECENT_POSTS, nextPosts);
+    return nextPosts;
+  },
 
   savePrefs: async (prefs) => setJson(KEYS.USER_PREFS, prefs),
   getPrefs: async () => getJson(KEYS.USER_PREFS),

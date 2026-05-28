@@ -10,6 +10,7 @@ function publicUser(userDoc, { includeAdminFields = false } = {}) {
     avatarUrl: userDoc.avatarUrl || null,
     banned: includeAdminFields ? !!userDoc.banned : undefined,
     createdAt: userDoc.createdAt ? new Date(userDoc.createdAt).toISOString() : null,
+    updatedAt: userDoc.updatedAt ? new Date(userDoc.updatedAt).toISOString() : null,
   };
 }
 

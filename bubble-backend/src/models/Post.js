@@ -13,6 +13,8 @@ const PostSchema = new mongoose.Schema(
 
     reactions: {
       heart: { type: Number, default: 0 },
+      bulb: { type: Number, default: 0 },
+      hug: { type: Number, default: 0 },
     },
     commentCount: { type: Number, default: 0 },
     viewCount: { type: Number, default: 0 },

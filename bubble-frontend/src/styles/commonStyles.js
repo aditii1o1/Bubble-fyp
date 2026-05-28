@@ -29,6 +29,7 @@ export const commonStyles = StyleSheet.create({
   },
   headerTitle: {
     flex: 1,
+    minWidth: 0,
     textAlign: "center",
     fontSize: theme.fontSize.lg,
     fontFamily: theme.fontFamily.bold,
@@ -47,6 +48,10 @@ export const commonStyles = StyleSheet.create({
   },
   iconButtonSpacer: {
     width: 36,
+  },
+  headerRightComponent: {
+    minWidth: 36,
+    alignItems: "flex-end",
   },
 
   searchBar: {

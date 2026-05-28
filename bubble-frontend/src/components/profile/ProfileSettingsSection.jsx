@@ -25,6 +25,7 @@ const SettingsItem = ({ icon, label, color, onPress }) => (
 
 export default function ProfileSettingsSection({
   onPrivacyPress,
+  onHelpPress,
   onReportProblem,
   onLogout,
 }) {
@@ -41,7 +42,11 @@ export default function ProfileSettingsSection({
         label="Privacy Policy"
         onPress={onPrivacyPress || comingSoon}
       />
-      <SettingsItem icon="help-circle-outline" label="Help & Support" onPress={comingSoon} />
+      <SettingsItem
+        icon="help-circle-outline"
+        label="Help & Support"
+        onPress={onHelpPress || comingSoon}
+      />
       <SettingsItem icon="flag-outline" label="Report a Problem" onPress={onReportProblem} />
       <SettingsItem
         icon="log-out-outline"

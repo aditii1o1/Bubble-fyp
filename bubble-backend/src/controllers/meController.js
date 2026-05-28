@@ -1,4 +1,5 @@
 import { User } from "../models/User.js";
+import { Post } from "../models/Post.js";
 import { cloudinary, getCloudinaryConfig } from "../config/cloudinary.js";
 
 function normalizeUsername(username) {
@@ -23,6 +24,7 @@ function publicMe(u) {
     avatar: u.avatar || "cat",
     avatarUrl: u.avatarUrl || null,
     createdAt: u.createdAt ? new Date(u.createdAt).toISOString() : null,
+    updatedAt: u.updatedAt ? new Date(u.updatedAt).toISOString() : null,
   };
 }
 
@@ -34,6 +36,20 @@ function uploadBufferToCloudinary(buffer, options = {}) {
     });
     stream.end(buffer);
   });
+}
+
+async function syncAuthorFieldsToPosts(userDoc) {
+  if (!userDoc?._id) return;
+  await Post.updateMany(
+    { userId: userDoc._id },
+    {
+      $set: {
+        nickname: userDoc.nickname || "@anonymous",
+        avatar: userDoc.avatar || "cat",
+        avatarUrl: userDoc.avatarUrl || null,
+      },
+    }
+  );
 }
 
 const meController = {
@@ -68,6 +84,7 @@ const meController = {
 
       me.onboarded = true;
       await me.save();
+      await syncAuthorFieldsToPosts(me);
 
       return res.json({ user: publicMe(me) });
     } catch (e) {
@@ -89,11 +106,15 @@ const meController = {
       if (typeof req.body?.avatar === "string") {
         me.avatar = String(req.body.avatar).trim() || me.avatar;
       }
-      if (typeof req.body?.avatarUrl === "string") {
-        me.avatarUrl = String(req.body.avatarUrl).trim() || null;
+      if (Object.prototype.hasOwnProperty.call(req.body || {}, "avatarUrl")) {
+        me.avatarUrl =
+          typeof req.body.avatarUrl === "string"
+            ? String(req.body.avatarUrl).trim() || null
+            : null;
       }
 
       await me.save();
+      await syncAuthorFieldsToPosts(me);
       return res.json({ user: publicMe(me) });
     } catch (e) {
       return next(e);
@@ -124,6 +145,7 @@ const meController = {
       if (!me) return res.status(404).json({ message: "User not found" });
       me.avatarUrl = String(imageUrl);
       await me.save();
+      await syncAuthorFieldsToPosts(me);
 
       return res.json({ user: publicMe(me) });
     } catch (e) {

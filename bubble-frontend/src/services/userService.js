@@ -9,6 +9,7 @@ function normalizeUser(user) {
     id,
     uid: id,
     createdAt: user.createdAt || null,
+    updatedAt: user.updatedAt || null,
   };
 }
 

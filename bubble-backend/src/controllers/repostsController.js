@@ -8,7 +8,6 @@ function formatRepost(repostDoc) {
     originalBubbleId: String(repostDoc.originalBubbleId || ""),
     originalText: repostDoc.originalText || "",
     overlayText: repostDoc.overlayText || "",
-    timeAgo: "just now",
     originalAuthor: repostDoc.originalAuthor || "@anonymous",
     createdAt: repostDoc.createdAt ? new Date(repostDoc.createdAt).toISOString() : new Date().toISOString(),
   };

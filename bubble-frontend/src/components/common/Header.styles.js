@@ -28,9 +28,10 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  logoImage: {
-    height: 34,
-    width: 140,
+  logoText: {
+    fontSize: theme.fontSize.xxl,
+    fontFamily: theme.fonts.bold,
+    color: theme.colors.primaryPink,
   },
   rightActions: {
     flexDirection: "row",

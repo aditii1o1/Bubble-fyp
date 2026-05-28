@@ -1,5 +1,22 @@
 import { moderationService } from "./moderationService";
 import { api } from "./apiClient";
+import { DEFAULT_REACTION_COUNTS } from "../constants/reactions";
+
+function normalizeReactions(reactions = {}) {
+  const counts = Object.keys(DEFAULT_REACTION_COUNTS).reduce((acc, key) => {
+    const value = Number(reactions?.[key] || 0);
+    acc[key] = Number.isFinite(value) ? value : 0;
+    return acc;
+  }, {});
+
+  Object.entries(reactions || {}).forEach(([key, value]) => {
+    if (Object.prototype.hasOwnProperty.call(counts, key)) return;
+    const count = Number(value || 0);
+    if (Number.isFinite(count) && count > 0) counts[key] = count;
+  });
+
+  return counts;
+}
 
 function normalizePost(id, data) {
   const createdAt =
@@ -16,7 +33,7 @@ function normalizePost(id, data) {
     title: data.title || "",
     text: data.text || "",
     tags: Array.isArray(data.tags) ? data.tags : [],
-    reactions: data.reactions || { heart: 0 },
+    reactions: normalizeReactions(data.reactions),
     commentCount: data.commentCount || 0,
     comments: data.commentCount || 0, // kept for backward compat in UI
     viewCount: data.viewCount || 0,

@@ -31,14 +31,18 @@ export default function DonationCard({ donation }) {
       <View style={styles.row}>
         <View style={styles.left}>
           <Text style={styles.nickname}>{nickname}</Text>
-          <Text style={styles.email}>{email}</Text>
-          <Text style={styles.meta}>
+          <Text style={styles.email} numberOfLines={1}>
+            {email}
+          </Text>
+          <Text style={styles.meta} numberOfLines={2}>
             {createdAt ? `${createdAt} - ` : ""}
             {reference ? `Reference ${reference}` : "No payment id"}
           </Text>
         </View>
         <View style={styles.right}>
-          <Text style={styles.amount}>{amountLabel}</Text>
+          <Text style={styles.amount} numberOfLines={1}>
+            {amountLabel}
+          </Text>
           <View
             style={[
               styles.badge,
@@ -50,6 +54,7 @@ export default function DonationCard({ donation }) {
                 styles.badgeText,
                 status.toLowerCase() === "completed" && styles.badgeTextSuccess,
               ]}
+              numberOfLines={1}
             >
               {status}
             </Text>
@@ -72,6 +77,7 @@ const styles = StyleSheet.create({
   },
   left: {
     flex: 1,
+    minWidth: 0,
     marginRight: theme.spacing.md,
   },
   nickname: {
@@ -93,6 +99,8 @@ const styles = StyleSheet.create({
   },
   right: {
     alignItems: "flex-end",
+    flexShrink: 0,
+    maxWidth: 124,
   },
   amount: {
     fontSize: theme.fontSize.md,

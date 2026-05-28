@@ -119,8 +119,14 @@ export default function OnboardingScreen() {
         };
 
         dispatch(appActions.setProfile(updates));
+        dispatch(appActions.setAuthorProfile(updates));
         dispatch(appActions.setRole(updates.role));
         dispatch(appActions.setUser({ uid: updates.uid, email: updates.email }));
+        dispatch(appActions.updatePostsAuthor(uid, {
+          nickname: updates.nickname,
+          avatar: updates.avatar,
+          avatarUrl: updates.avatarUrl,
+        }));
 
         showToast(isEditing ? "Profile updated!" : "Profile saved!", { type: "success" });
         router.replace(updates.role === "admin" ? "/(admin)" : "/(tabs)/Home");
@@ -128,6 +134,11 @@ export default function OnboardingScreen() {
         Promise.allSettled([
           postService.updateUserPostsAuthor(uid, updates),
           cacheService.saveUser(updates),
+          cacheService.updatePostsAuthor(uid, {
+            nickname: updates.nickname,
+            avatar: updates.avatar,
+            avatarUrl: updates.avatarUrl,
+          }),
         ]);
       } catch (e) {
         showToast(e?.message || "Could not save profile. Try again.", { type: "error" });
@@ -157,6 +168,37 @@ export default function OnboardingScreen() {
         if (!me?.id) throw new Error("Could not update profile photo.");
 
         setAvatarUrl(me.avatarUrl || null);
+        const updates = {
+          uid: me.id,
+          email: me.email,
+          role: me.role,
+          banned: !!me.banned,
+          onboarded: !!me.onboarded,
+          username: me.username || "",
+          nickname: me.nickname || "@anonymous",
+          bio: me.bio || "",
+          avatar: me.avatar || avatar || "cat",
+          avatarUrl: me.avatarUrl || null,
+          createdAt: me.createdAt || state.profile?.createdAt || null,
+          updatedAt: me.updatedAt || null,
+        };
+        dispatch(appActions.setProfile(updates));
+        dispatch(appActions.setAuthorProfile(updates));
+        dispatch(
+          appActions.updatePostsAuthor(uid, {
+            nickname: updates.nickname,
+            avatar: updates.avatar,
+            avatarUrl: updates.avatarUrl,
+          })
+        );
+        Promise.allSettled([
+          cacheService.saveUser(updates),
+          cacheService.updatePostsAuthor(uid, {
+            nickname: updates.nickname,
+            avatar: updates.avatar,
+            avatarUrl: updates.avatarUrl,
+          }),
+        ]);
         showToast("Profile photo updated!", { type: "success" });
         setShowAvatarPicker(false);
       } catch (e) {
@@ -165,7 +207,7 @@ export default function OnboardingScreen() {
         setIsUploadingAvatar(false);
       }
     })();
-  }, [showToast, uid]);
+  }, [avatar, dispatch, showToast, state.profile?.createdAt, uid]);
 
   return (
     <SafeAreaView style={styles.container}>

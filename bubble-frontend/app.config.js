@@ -21,6 +21,9 @@ module.exports = ({ config }) => {
     extra: {
       ...extra,
       apiUrl: String(process.env.EXPO_PUBLIC_API_URL || extra.apiUrl || "").trim(),
+      useLocalApi: String(
+        process.env.EXPO_PUBLIC_USE_LOCAL_API || extra.useLocalApi || ""
+      ).trim(),
       khaltiPublicKey: String(
         process.env.EXPO_PUBLIC_KHALTI_PUBLIC_KEY || extra.khaltiPublicKey || ""
       ).trim(),

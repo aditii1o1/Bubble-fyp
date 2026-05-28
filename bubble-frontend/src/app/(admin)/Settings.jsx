@@ -5,13 +5,18 @@ import { router } from "expo-router";
 import { theme } from "../../constants/themes";
 import { commonStyles } from "../../styles/commonStyles";
 import ScreenHeader from "../../components/common/ScreenHeader";
+import AdminProfileMenu from "../../components/admin/AdminProfileMenu";
 
 export default function AdminSettingsScreen() {
   return (
     <SafeAreaView style={commonStyles.screen}>
       <StatusBar barStyle="dark-content" />
 
-      <ScreenHeader title="Admin Settings" onBack={router.back} />
+      <ScreenHeader
+        title="Admin Settings"
+        onBack={router.back}
+        rightComponent={<AdminProfileMenu />}
+      />
 
       <View style={styles.content}>
         <TouchableOpacity

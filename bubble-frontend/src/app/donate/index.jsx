@@ -21,6 +21,7 @@ import { DONATION_CONFIG } from "../../config/donations";
 
 const PRESET_AMOUNTS = DONATION_CONFIG.presetAmounts || [50, 100, 250, 500];
 const MIN_AMOUNT = DONATION_CONFIG.minAmount || 10;
+const MAX_AMOUNT = DONATION_CONFIG.maxAmount || 50000;
 const IS_WEB = Platform.OS === "web";
 
 function extractErrorMessage(error) {
@@ -71,11 +72,12 @@ export default function DonateScreen() {
     if (!digits) return null;
     return Number(digits);
   }, [amount]);
-  const amountIsValid = amountValue !== null && amountValue >= MIN_AMOUNT;
+  const amountIsValid =
+    amountValue !== null && amountValue >= MIN_AMOUNT && amountValue <= MAX_AMOUNT;
   const emailIsValid = email.includes("@");
   const donorName = name.trim();
   const nameIsValid = donorName.length >= 2;
-  const checkoutEnabled = !IS_WEB && !isLoading && amountIsValid && nameIsValid && emailIsValid;
+  const checkoutEnabled = !isLoading && amountIsValid && nameIsValid && emailIsValid;
 
   const handleDonate = async () => {
     if (IS_WEB) {
@@ -85,7 +87,11 @@ export default function DonateScreen() {
       return;
     }
     if (!amountIsValid) {
-      showToast(`Minimum donation is NPR ${MIN_AMOUNT}.`, { type: "error" });
+      const message =
+        amountValue !== null && amountValue > MAX_AMOUNT
+          ? `Maximum donation is NPR ${MAX_AMOUNT}.`
+          : `Minimum donation is NPR ${MIN_AMOUNT}.`;
+      showToast(message, { type: "error" });
       return;
     }
     if (!nameIsValid) {
@@ -220,7 +226,11 @@ export default function DonateScreen() {
             style={styles.input}
           />
           {!amountIsValid && amountValue !== null ? (
-            <Text style={styles.inputError}>Minimum donation is NPR {MIN_AMOUNT}.</Text>
+            <Text style={styles.inputError}>
+              {amountValue > MAX_AMOUNT
+                ? `Maximum donation is NPR ${MAX_AMOUNT}.`
+                : `Minimum donation is NPR ${MIN_AMOUNT}.`}
+            </Text>
           ) : null}
 
           <Text style={styles.sectionLabel}>Payer details</Text>
@@ -257,7 +267,9 @@ export default function DonateScreen() {
                 </Text>
               </View>
             ) : (
-              <Text style={styles.payButtonText}>Continue to Khalti</Text>
+              <Text style={styles.payButtonText}>
+                {IS_WEB ? "Open on mobile to pay" : "Continue to Khalti"}
+              </Text>
             )}
           </TouchableOpacity>
 

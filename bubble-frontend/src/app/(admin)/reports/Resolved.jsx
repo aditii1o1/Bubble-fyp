@@ -3,15 +3,14 @@ import { FlatList, StatusBar, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { theme } from "../../../constants/themes";
-import { appActions, useAppContext } from "../../../context/AppContext";
+import { useAppContext } from "../../../context/AppContext";
 import { commonStyles } from "../../../styles/commonStyles";
-import { confirmAlert } from "../../../utils/alertUtils";
 import EmptyState from "../../../components/common/EmptyState";
 import ScreenHeader from "../../../components/common/ScreenHeader";
 import SearchBar from "../../../components/common/SearchBar";
 import ReportCard from "../../../components/admin/ReportCard";
+import AdminProfileMenu from "../../../components/admin/AdminProfileMenu";
 import { adminService } from "../../../services/adminService";
-import { authService } from "../../../services/authService";
 
 function reportMatchesQuery(report, q, reporter, reportedUser) {
   if (!q) return true;
@@ -35,7 +34,7 @@ function reportMatchesQuery(report, q, reporter, reportedUser) {
 }
 
 export default function ResolvedReportsScreen() {
-  const { state, dispatch } = useAppContext();
+  const { state } = useAppContext();
   const [query, setQuery] = useState("");
   const [reports, setReports] = useState([]);
 
@@ -58,25 +57,6 @@ export default function ResolvedReportsScreen() {
       }
     })();
   }, [sync]);
-
-  const confirmLogout = useCallback(() => {
-    confirmAlert({
-      title: "Log out",
-      message: "Are you sure you want to log out of admin?",
-      confirmText: "Log out",
-      confirmStyle: "destructive",
-      onConfirm: () => {
-        (async () => {
-          try {
-            dispatch(appActions.logout());
-            await authService.logout();
-          } finally {
-            router.replace("/(auth)/Login");
-          }
-        })();
-      },
-    });
-  }, [dispatch]);
 
   const { filteredReports, counts } = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -117,9 +97,7 @@ export default function ResolvedReportsScreen() {
       <ScreenHeader
         title="Resolved Reports"
         onBack={router.back}
-        rightIcon="log-out-outline"
-        onRightPress={confirmLogout}
-        rightAccessibilityLabel="Log out"
+        rightComponent={<AdminProfileMenu />}
       />
 
       <View style={styles.top}>

@@ -30,6 +30,7 @@ export default function RootLayout() {
             <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
             <Stack.Screen name="profile/[userId]" options={{ headerShown: false }} />
             <Stack.Screen name="privacy" options={{ headerShown: false }} />
+            <Stack.Screen name="support" options={{ headerShown: false }} />
           </Stack>
           <StatusBar style="auto" />
         </>

@@ -1,14 +1,11 @@
 import { api } from "./apiClient";
-
-function safeKey(k) {
-  return String(k || "").trim();
-}
+import { normalizeReactionKey } from "../constants/reactions";
 
 export const reactionService = {
   // One reaction max
   togglePostReaction: async ({ postId, uid, reactionKey }) => {
     const pid = String(postId || "");
-    const nextKey = "heart";
+    const nextKey = normalizeReactionKey(reactionKey);
     const res = await api.post(`/posts/${pid}/reactions/toggle`, {
       reactionKey: nextKey,
     });

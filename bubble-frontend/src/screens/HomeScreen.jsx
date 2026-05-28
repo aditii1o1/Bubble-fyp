@@ -21,11 +21,13 @@ import { styles } from "./HomeScreen.styles";
 import { postService } from "../services/postService";
 import { cacheService } from "../services/cacheService";
 import { reactionService } from "../services/reactionService";
+import { userService } from "../services/userService";
 import { TAGS } from "../constants/tags";
 import { useToast } from "../context/ToastContext";
 import { notificationService } from "../services/notificationService";
 
 const MIN_FEED_REFRESH_INTERVAL_MS = 600;
+const AUTHOR_PROFILE_REFRESH_MS = 5 * 60 * 1000;
 
 const HomeScreen = () => {
   const { state, dispatch } = useAppContext();
@@ -42,10 +44,84 @@ const HomeScreen = () => {
   const latestPostsRef = useRef(state.posts);
   const isFetchingRef = useRef(false);
   const lastNetworkFetchAtRef = useRef(0);
+  const authorProfileFetchesRef = useRef(new Map());
 
   useEffect(() => {
     latestPostsRef.current = state.posts;
   }, [state.posts]);
+
+  useEffect(() => {
+    const uid = state.user?.uid;
+    if (!uid) return;
+
+    dispatch(
+      appActions.updatePostsAuthor(uid, {
+        nickname: state.profile.nickname || "@anonymous",
+        avatar: state.profile.avatar || "cat",
+        avatarUrl: state.profile.avatarUrl || null,
+      })
+    );
+  }, [
+    dispatch,
+    state.profile.avatar,
+    state.profile.avatarUrl,
+    state.profile.nickname,
+    state.user?.uid,
+  ]);
+
+  useEffect(() => {
+    const posts = Array.isArray(bubbles) ? bubbles : [];
+    if (!posts.length) return;
+
+    let cancelled = false;
+    const now = Date.now();
+    const seen = new Set();
+    const authorIds = [];
+
+    posts.forEach((post) => {
+      const userId = String(post?.userId || "").trim();
+      if (!userId || seen.has(userId)) return;
+      seen.add(userId);
+
+      const lastFetchedAt = authorProfileFetchesRef.current.get(userId) || 0;
+      if (now - lastFetchedAt < AUTHOR_PROFILE_REFRESH_MS) return;
+
+      authorProfileFetchesRef.current.set(userId, now);
+      authorIds.push(userId);
+    });
+
+    if (!authorIds.length) return;
+
+    (async () => {
+      const profiles = await Promise.all(
+        authorIds.map(async (userId) => {
+          try {
+            return await userService.getUserProfile(userId);
+          } catch {
+            return null;
+          }
+        })
+      );
+
+      if (cancelled) return;
+
+      profiles.forEach((profile) => {
+        if (!profile?.id) return;
+        dispatch(appActions.setAuthorProfile(profile));
+        dispatch(
+          appActions.updatePostsAuthor(profile.id, {
+            nickname: profile.nickname,
+            avatar: profile.avatar,
+            avatarUrl: profile.avatarUrl || null,
+          })
+        );
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [bubbles, dispatch]);
 
   useEffect(() => {
     const animation = Animated.parallel([
@@ -205,12 +281,15 @@ const HomeScreen = () => {
     if (!bubble?.userId) {
       return;
     }
+    const authorProfile = state.authorProfiles?.[bubble.userId] || null;
     router.push({
       pathname: "/profile/[userId]",
       params: {
         userId: bubble.userId,
-        nickname: bubble.nickname,
-        avatar: bubble.avatar,
+        nickname: authorProfile?.nickname || bubble.nickname,
+        username: authorProfile?.username || "",
+        avatar: authorProfile?.avatar || bubble.avatar,
+        avatarUrl: authorProfile?.avatarUrl || bubble.avatarUrl || "",
       },
     });
   };
