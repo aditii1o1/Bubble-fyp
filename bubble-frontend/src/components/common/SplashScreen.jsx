@@ -42,6 +42,8 @@ export default function SplashScreen() {
     return () => {
       floatLoop.stop();
       pulseLoop.stop();
+      floatAnim.stopAnimation();
+      pulseAnim.stopAnimation();
     };
   }, [floatAnim, pulseAnim]);
 

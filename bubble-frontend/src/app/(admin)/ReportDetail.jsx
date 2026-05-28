@@ -14,10 +14,8 @@ import ReportContentCard from "../../components/admin/reportDetail/ReportContent
 import ReportActions from "../../components/admin/reportDetail/ReportActions";
 import { adminService } from "../../services/adminService";
 import { authService } from "../../services/authService";
-import { userService } from "../../services/userService";
-import { postService } from "../../services/postService";
-import { commentService } from "../../services/commentService";
 import { useToast } from "../../context/ToastContext";
+import { getErrorMessage } from "../../utils/errorMessage";
 
 export default function AdminReportDetailScreen() {
   const { reportId } = useLocalSearchParams();
@@ -26,30 +24,18 @@ export default function AdminReportDetailScreen() {
   const [report, setReport] = useState(null);
   const [reporter, setReporter] = useState(null);
   const [reportedUser, setReportedUser] = useState(null);
+  const [pendingAction, setPendingAction] = useState("");
 
   const refresh = useCallback(async () => {
     if (!reportId) return;
 
     const r = await adminService.getReportById(String(reportId));
     setReport(r);
-
-    if (r?.reporterId) {
-      const u = await userService.getUserProfile(r.reporterId);
-      setReporter(u ? { ...u, id: u.uid, isBanned: !!u.banned } : null);
-    } else {
-      setReporter(null);
-    }
-
-    if (r?.reportedUserId) {
-      const u = await userService.getUserProfile(r.reportedUserId);
-      setReportedUser(u ? { ...u, id: u.uid, isBanned: !!u.banned } : null);
-    } else {
-      setReportedUser(null);
-    }
+    setReporter(r?.reporter ? { ...r.reporter, isBanned: !!r.reporter?.banned } : null);
+    setReportedUser(r?.reportedUser ? { ...r.reportedUser, isBanned: !!r.reportedUser?.banned } : null);
   }, [reportId]);
 
   useEffect(() => {
-    let alive = true;
     (async () => {
       try {
         await refresh();
@@ -57,15 +43,17 @@ export default function AdminReportDetailScreen() {
         // ignore
       }
     })();
-    return () => {
-      alive = false;
-    };
   }, [refresh]);
 
   const target = useMemo(() => {
     if (!report) return null;
     return { text: report.targetText };
   }, [report]);
+
+  const isBusy = Boolean(pendingAction);
+  const canToggleBan =
+    !!reportedUser &&
+    String(reportedUser.id || "") !== String(state.user?.uid || "");
 
   const confirmLogout = useCallback(() => {
     confirmAlert({
@@ -87,7 +75,7 @@ export default function AdminReportDetailScreen() {
   }, [dispatch]);
 
   const onResolve = useCallback(() => {
-    if (!report) return;
+    if (!report || isBusy || report.status !== "open") return;
     confirmAlert({
       title: "Mark resolved?",
       message: "Mark this report as resolved?",
@@ -95,19 +83,24 @@ export default function AdminReportDetailScreen() {
       onConfirm: () => {
         (async () => {
           try {
+            setPendingAction("resolve");
             await adminService.resolveReport({ reportId: report.id, actionTaken: "resolved" });
             await refresh();
             showToast("Report marked as resolved.", { type: "success" });
           } catch (e) {
-            showToast(e?.message || "Something went wrong", { type: "error" });
+            showToast(getErrorMessage(e, { fallbackMessage: "Something went wrong." }), {
+              type: "error",
+            });
+          } finally {
+            setPendingAction("");
           }
         })();
       },
     });
-  }, [refresh, report, showToast]);
+  }, [isBusy, refresh, report, showToast]);
 
   const onDeleteContent = useCallback(() => {
-    if (!report) return;
+    if (!report || isBusy) return;
 
     const contentLabel = report.targetType === "post" ? "post" : "comment";
     confirmAlert({
@@ -118,27 +111,33 @@ export default function AdminReportDetailScreen() {
       onConfirm: () => {
         (async () => {
           try {
+            setPendingAction("delete");
             if (report.targetType === "post") {
-              await postService.deletePost(report.targetId);
+              await adminService.deleteReportedPost({ postId: report.targetId });
             } else {
-              await commentService.deleteComment({
-                postId: report.targetPostId,
-                commentId: report.targetId,
-              });
+              await adminService.deleteReportedComment({ commentId: report.targetId });
             }
             await adminService.markReportDeleted({ reportId: report.id, actionTaken: "deleted" });
             await refresh();
             showToast(`Deleted ${contentLabel}.`, { type: "success" });
           } catch (e) {
-            showToast(e?.message || "Something went wrong", { type: "error" });
+            showToast(getErrorMessage(e, { fallbackMessage: "Something went wrong." }), {
+              type: "error",
+            });
+          } finally {
+            setPendingAction("");
           }
         })();
       },
     });
-  }, [refresh, report, showToast]);
+  }, [isBusy, refresh, report, showToast]);
 
   const onToggleBan = useCallback(() => {
-    if (!reportedUser) return;
+    if (!reportedUser || isBusy) return;
+    if (!canToggleBan) {
+      showToast("You can't ban your own admin account.", { type: "error" });
+      return;
+    }
     const next = !reportedUser.isBanned;
     confirmAlert({
       title: next ? "Ban user?" : "Unban user?",
@@ -148,6 +147,7 @@ export default function AdminReportDetailScreen() {
       onConfirm: () => {
         (async () => {
           try {
+            setPendingAction("ban");
             if (next) await adminService.banUser({ userId: reportedUser.id });
             else await adminService.unbanUser({ userId: reportedUser.id });
             await refresh();
@@ -156,12 +156,16 @@ export default function AdminReportDetailScreen() {
               { type: "success" }
             );
           } catch (e) {
-            showToast(e?.message || "Something went wrong", { type: "error" });
+            showToast(getErrorMessage(e, { fallbackMessage: "Something went wrong." }), {
+              type: "error",
+            });
+          } finally {
+            setPendingAction("");
           }
         })();
       },
     });
-  }, [refresh, reportedUser, showToast]);
+  }, [canToggleBan, isBusy, refresh, reportedUser, showToast]);
 
   if (!report) {
     return (
@@ -213,9 +217,30 @@ export default function AdminReportDetailScreen() {
           <ReportActions
             onResolve={onResolve}
             onToggleBan={onToggleBan}
-            banLabel={reportedUser?.isBanned ? "Unban User" : "Ban User"}
-            banDisabled={!reportedUser}
+            resolveLabel={
+              pendingAction === "resolve"
+                ? "Resolving..."
+                : report.status === "open"
+                  ? "Mark Resolved"
+                  : report.status === "deleted"
+                    ? "Already Deleted"
+                    : "Already Resolved"
+            }
+            banLabel={
+              pendingAction === "ban"
+                ? reportedUser?.isBanned
+                  ? "Unbanning..."
+                  : "Banning..."
+                : reportedUser?.isBanned
+                  ? "Unban User"
+                  : "Ban User"
+            }
+            banDisabled={!canToggleBan}
             onDeleteContent={onDeleteContent}
+            deleteLabel={pendingAction === "delete" ? "Deleting..." : "Delete Content"}
+            resolveDisabled={isBusy || report.status !== "open"}
+            deleteDisabled={isBusy}
+            banBusy={isBusy}
           />
         </View>
       </ScrollView>

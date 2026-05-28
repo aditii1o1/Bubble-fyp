@@ -20,8 +20,8 @@ export default function RootLayout() {
   }
 
   return (
-    <AppProvider>
-      <ToastProvider>
+    <ToastProvider>
+      <AppProvider>
         <>
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
@@ -29,10 +29,11 @@ export default function RootLayout() {
             <Stack.Screen name="(admin)" options={{ headerShown: false }} />
             <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
             <Stack.Screen name="profile/[userId]" options={{ headerShown: false }} />
+            <Stack.Screen name="privacy" options={{ headerShown: false }} />
           </Stack>
           <StatusBar style="auto" />
         </>
-      </ToastProvider>
-    </AppProvider>
+      </AppProvider>
+    </ToastProvider>
   );
 }

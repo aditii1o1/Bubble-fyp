@@ -9,6 +9,9 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: Platform.OS === "ios" ? 44 : StatusBar.currentHeight || 0,
     paddingBottom: 14,
+    backgroundColor: theme.colors.bgCream,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.borderSoft,
     zIndex: 100,
   },
   statusBarSpacing: {

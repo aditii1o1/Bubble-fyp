@@ -1,0 +1,42 @@
+# Root-level EAS ignore for monorepo uploads
+.git/
+node_modules/
+.expo/
+.dist/
+.kotlin/
+.gradle/
+.gradle-cache/
+.gradle-local/
+.gradle-local-*/
+eas-log-*.txt
+.android-home/
+
+# Monorepo folders not needed by the frontend EAS build
+bubble-backend/
+bubble-frontend-eas-repro/
+
+# Nested Android build artifacts inside app folders
+**/android/.gradle/
+**/android/.gradle-local/
+**/android/.gradle-local-*/
+**/android/.kotlin/
+**/android/build/
+**/android/app/build/
+**/android/app/.cxx/
+**/android/local.properties/
+**/android/*.iml
+
+# Accidental local artifacts
+bubble-frontend/expo-router
+bubble-frontend/com.facebook.react.modules.core.ReactChoreographer*
+
+android/.gradle/
+android/.kotlin/
+android/build/
+android/app/build/
+android/app/.cxx/
+android/local.properties/
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*

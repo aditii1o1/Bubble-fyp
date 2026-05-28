@@ -40,6 +40,11 @@ const CustomButton = ({
     }
   };
 
+  const getLoaderColor = () => {
+    if (variant === "primary") return theme.colors.white;
+    return theme.colors.primary;
+  };
+
   return (
     <TouchableOpacity
       style={[
@@ -54,11 +59,7 @@ const CustomButton = ({
       {...props}
     >
       {loading ? (
-        <ActivityIndicator
-          color={
-            variant === "outline" ? theme.colors.primary : theme.colors.white
-          }
-        />
+        <ActivityIndicator color={getLoaderColor()} />
       ) : (
         <Text style={[styles.text, getTextStyle(), textStyle]}>{title}</Text>
       )}

@@ -57,6 +57,12 @@ export const styles = StyleSheet.create({
     fontFamily: theme.fontFamily.bold,
     color: theme.colors.text,
   },
+  username: {
+    marginTop: theme.spacing.xs,
+    fontSize: theme.fontSize.sm,
+    fontFamily: theme.fontFamily.bold,
+    color: theme.colors.primaryPink,
+  },
   email: {
     marginTop: theme.spacing.xs,
     fontSize: theme.fontSize.sm,
@@ -67,6 +73,7 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginTop: theme.spacing.md,
+    width: "100%",
   },
   bioLine: {
     flex: 1,

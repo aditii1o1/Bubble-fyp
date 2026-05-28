@@ -1,5 +1,7 @@
 import { Notification } from "../models/Notification.js";
 
+const DUPLICATE_WINDOW_MS = 2 * 60 * 1000;
+
 function formatNotification(notificationDoc) {
   return {
     id: String(notificationDoc._id),
@@ -8,11 +10,50 @@ function formatNotification(notificationDoc) {
     fromNickname: notificationDoc.fromNickname || null,
     fromUserId: notificationDoc.fromUserId ? String(notificationDoc.fromUserId) : null,
     postId: notificationDoc.postId || null,
+    eventKey: notificationDoc.eventKey || null,
     read: Boolean(notificationDoc.read),
     createdAt: notificationDoc.createdAt
       ? new Date(notificationDoc.createdAt).toISOString()
       : new Date().toISOString(),
   };
+}
+
+function notificationIdentityKey(notificationDoc) {
+  const eventKey = String(notificationDoc?.eventKey || "").trim();
+  if (eventKey) return `event:${eventKey}`;
+
+  return [
+    notificationDoc?.type || "info",
+    notificationDoc?.text || "",
+    notificationDoc?.fromUserId ? String(notificationDoc.fromUserId) : "",
+    notificationDoc?.postId || "",
+  ].join("|");
+}
+
+function collapseNotifications(notificationDocs, pageSize) {
+  const deduped = [];
+  const seen = new Map();
+
+  for (const doc of notificationDocs) {
+    const createdAt = new Date(doc?.createdAt || 0).getTime();
+    const key = notificationIdentityKey(doc);
+    const lastSeenAt = seen.get(key);
+
+    if (
+      Number.isFinite(createdAt) &&
+      Number.isFinite(lastSeenAt) &&
+      Math.abs(lastSeenAt - createdAt) < DUPLICATE_WINDOW_MS
+    ) {
+      continue;
+    }
+
+    deduped.push(doc);
+    seen.set(key, createdAt);
+
+    if (deduped.length >= pageSize) break;
+  }
+
+  return deduped;
 }
 
 const notificationController = {
@@ -24,10 +65,12 @@ const notificationController = {
       );
       const notificationDocs = await Notification.find({ toUserId: req.user._id })
         .sort({ createdAt: -1 })
-        .limit(pageSize)
+        .limit(pageSize * 4)
         .lean();
+
+      const visibleNotifications = collapseNotifications(notificationDocs, pageSize);
       return res.json({
-        notifications: notificationDocs.map((doc) => formatNotification(doc)),
+        notifications: visibleNotifications.map((doc) => formatNotification(doc)),
       });
     } catch (e) {
       return next(e);
@@ -70,8 +113,38 @@ const notificationController = {
           typeof req.body?.fromNickname === "string" ? req.body.fromNickname : null,
         fromUserId: typeof req.body?.fromUserId === "string" ? req.body.fromUserId : null,
         postId: typeof req.body?.postId === "string" ? req.body.postId : null,
+        eventKey: typeof req.body?.eventKey === "string" ? req.body.eventKey.trim() || null : null,
         read: false
       };
+
+      const cutoff = new Date(Date.now() - DUPLICATE_WINDOW_MS);
+      const duplicateQuery = payload.eventKey
+        ? {
+            toUserId,
+            eventKey: payload.eventKey,
+            createdAt: { $gte: cutoff },
+          }
+        : {
+            toUserId,
+            type: payload.type,
+            text: payload.text,
+            fromUserId: payload.fromUserId,
+            postId: payload.postId,
+            read: false,
+            createdAt: { $gte: cutoff },
+          };
+
+      const existingNotification = await Notification.findOne(duplicateQuery)
+        .sort({ createdAt: -1 })
+        .lean();
+
+      if (existingNotification) {
+        return res.json({
+          notification: formatNotification(existingNotification),
+          deduped: true,
+        });
+      }
+
       const createdNotification = await Notification.create(payload);
       return res.status(201).json({
         notification: formatNotification(createdNotification.toObject()),

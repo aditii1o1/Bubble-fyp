@@ -1,14 +1,15 @@
 import React, { useEffect, useRef } from "react";
-import { View, Animated, Dimensions } from "react-native";
+import { View, Animated, Dimensions, Text } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { styles } from "./Skeleton.styles";
 
 const { width } = Dimensions.get("window");
 
-const Skeleton = () => {
+const Skeleton = ({ label = "" }) => {
   const shimmerAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.loop(
+    const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(shimmerAnim, {
           toValue: 1,
@@ -21,7 +22,13 @@ const Skeleton = () => {
           useNativeDriver: true,
         }),
       ])
-    ).start();
+    );
+    loop.start();
+
+    return () => {
+      loop.stop();
+      shimmerAnim.stopAnimation();
+    };
   }, [shimmerAnim]);
 
   const translateX = shimmerAnim.interpolate({
@@ -31,6 +38,12 @@ const Skeleton = () => {
 
   return (
     <View style={styles.card}>
+      {!!label && (
+        <View style={styles.labelRow}>
+          <View style={styles.labelDot} />
+          <Text style={styles.labelText}>{label}</Text>
+        </View>
+      )}
       <View style={styles.header}>
         <View style={styles.avatar} />
         <View style={styles.meta}>
@@ -54,7 +67,14 @@ const Skeleton = () => {
             transform: [{ translateX }],
           },
         ]}
-      />
+      >
+        <LinearGradient
+          colors={["transparent", "rgba(255,255,255,0.55)", "transparent"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.shimmerGradient}
+        />
+      </Animated.View>
     </View>
   );
 };

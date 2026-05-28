@@ -8,19 +8,15 @@ import AuthLayout from "../../components/common/AuthLayout";
 import ControlledInput from "../../components/common/ControlledInput";
 import CustomButton from "../../components/common/CustomButton";
 import { signupSchema } from "../../utils/validationSchemas";
-import { appActions, useAppContext } from "../../context/AppContext";
 import { styles } from "../../screens/auth/Signup.styles";
-import { authService } from "../../services/authService";
-import { getAuthErrorMessage } from "../../utils/authError";
 import { useToast } from "../../context/ToastContext";
-import { getAuthenticatedHref } from "../../utils/authRedirect";
+import { pendingSignupService } from "../../services/pendingSignupService";
 
 export default function SignupScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const submitLockRef = useRef(false);
-  const { dispatch } = useAppContext();
   const { showToast } = useToast();
 
   const emailRef = useRef(null);
@@ -30,7 +26,7 @@ export default function SignupScreen() {
   const {
     control,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { isSubmitting },
     setFocus,
   } = useForm({
     resolver: zodResolver(signupSchema),
@@ -50,31 +46,16 @@ export default function SignupScreen() {
       setIsLoading(true);
       const email = String(data.email || "").trim().toLowerCase();
       const password = String(data.password || "");
+      const pendingKey = pendingSignupService.save({ email, password });
 
-      const result = await authService.signup({ email, password });
-
-      if (result?.autoSignedIn && result?.profile) {
-        dispatch(appActions.setProfile(result.profile));
-        dispatch(
-          appActions.login(
-            { email: result.profile.email, uid: result.user?.uid },
-            result.profile.role || "user",
-          ),
-        );
-        showToast("Account created!", { type: "success" });
-        router.replace(
-          getAuthenticatedHref({
-            role: result.profile.role,
-            onboarded: result.profile.onboarded,
-          }),
-        );
-        return;
-      }
-
-      showToast("Account created. Verify your email, then sign in.", { type: "success" });
-      router.replace("/(auth)/Login");
+      router.push({
+        pathname: "/(auth)/VerifyAge",
+        params: { pendingKey, email },
+      });
     } catch (error) {
-      showToast(getAuthErrorMessage(error), { type: "error" });
+      showToast("Could not start age verification. Please try again.", {
+        type: "error",
+      });
     } finally {
       submitLockRef.current = false;
       setIsLoading(false);
@@ -159,10 +140,13 @@ export default function SignupScreen() {
 
         <CustomButton
           title={
-            isLoading || isSubmitting ? "Creating Account..." : "Create Account"
+            isLoading || isSubmitting
+              ? "Preparing verification..."
+              : "Continue to Verify Age"
           }
           variant="secondary"
           onPress={handleSubmit(onSubmit)}
+          loading={isLoading || isSubmitting}
           disabled={isLoading || isSubmitting}
           style={styles.signupButton}
         />

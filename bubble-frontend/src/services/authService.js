@@ -1,17 +1,8 @@
 import { apiClient } from "./apiClient";
 import { cacheService } from "./cacheService";
+import { toAppError } from "../utils/errorMessage";
 
-function friendlyAuthError(err) {
-  if (err?.code === "ECONNABORTED") {
-    return "Request timed out. Check your connection and try again.";
-  }
-
-  const msg =
-    String(err?.response?.data?.message || "") ||
-    String(err?.message || "") ||
-    "Something went wrong.";
-  return msg;
-}
+const AUTH_REQUEST_TIMEOUT_MS = 10000;
 
 function toProfile(user) {
   return {
@@ -25,6 +16,7 @@ function toProfile(user) {
     bio: user.bio || "",
     avatar: user.avatar || "cat",
     avatarUrl: user.avatarUrl || null,
+    createdAt: user.createdAt || null,
   };
 }
 
@@ -32,10 +24,14 @@ export const authService = {
   signup: async ({ email, password } = {}) => {
     const normalizedEmail = String(email || "").trim().toLowerCase();
     try {
-      const res = await apiClient.post("/auth/register", {
-        email: normalizedEmail,
-        password: String(password || ""),
-      });
+      const res = await apiClient.post(
+        "/auth/register",
+        {
+          email: normalizedEmail,
+          password: String(password || ""),
+        },
+        { timeout: AUTH_REQUEST_TIMEOUT_MS }
+      );
 
       const user = res.data?.user || null;
       const accessToken = String(res.data?.accessToken || "");
@@ -45,11 +41,11 @@ export const authService = {
       if (user && accessToken && refreshToken) {
         const profile = toProfile(user);
 
-        await Promise.all([
-          cacheService.saveToken(accessToken),
-          cacheService.saveRefreshToken(refreshToken),
-          cacheService.saveUser(profile),
-        ]);
+        await cacheService.saveAuthSession({
+          userProfile: profile,
+          token: accessToken,
+          refreshToken,
+        });
 
         return {
           needsVerification: false,
@@ -65,16 +61,20 @@ export const authService = {
         email: normalizedEmail,
       };
     } catch (e) {
-      throw new Error(friendlyAuthError(e));
+      throw toAppError(e, { fallbackMessage: "Could not create your account. Please try again." });
     }
   },
 
   login: async (email, password) => {
     try {
-      const res = await apiClient.post("/auth/login", {
-        email: String(email || "").trim().toLowerCase(),
-        password: String(password || ""),
-      });
+      const res = await apiClient.post(
+        "/auth/login",
+        {
+          email: String(email || "").trim().toLowerCase(),
+          password: String(password || ""),
+        },
+        { timeout: AUTH_REQUEST_TIMEOUT_MS }
+      );
 
       const user = res.data?.user;
       const accessToken = String(res.data?.accessToken || "");
@@ -83,20 +83,39 @@ export const authService = {
 
       const profile = toProfile(user);
 
-      await Promise.all([
-        cacheService.saveToken(accessToken),
-        cacheService.saveRefreshToken(refreshToken),
-        cacheService.saveUser(profile),
-      ]);
+      await cacheService.saveAuthSession({
+        userProfile: profile,
+        token: accessToken,
+        refreshToken,
+      });
 
       return { user: { uid: profile.uid, email: profile.email }, token: accessToken, profile };
     } catch (e) {
-      throw new Error(friendlyAuthError(e));
+      throw toAppError(e, { fallbackMessage: "Could not sign in. Please try again." });
+    }
+  },
+
+  resendVerificationEmail: async ({ email } = {}) => {
+    try {
+      await apiClient.post(
+        "/auth/resend-verification",
+        {
+          email: String(email || "").trim().toLowerCase(),
+        },
+        { timeout: AUTH_REQUEST_TIMEOUT_MS }
+      );
+      return true;
+    } catch (e) {
+      throw toAppError(e, {
+        fallbackMessage: "Could not resend the verification link. Please try again.",
+      });
     }
   },
 
   logout: async () => {
-    const refreshToken = await cacheService.getRefreshToken();
+    const cachedSession = cacheService.getCachedAuthSession();
+    const refreshToken =
+      cachedSession?.refreshToken || (await cacheService.getRefreshToken());
     try {
       await cacheService.clearAuth();
     } finally {
@@ -118,7 +137,7 @@ export const authService = {
       });
       return true;
     } catch (e) {
-      throw new Error(friendlyAuthError(e));
+      throw toAppError(e, { fallbackMessage: "Could not send the reset link. Please try again." });
     }
   },
 };

@@ -1,21 +1,34 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, Image } from "react-native";
 import { theme } from "../../../constants/themes";
 import { commonStyles } from "../../../styles/commonStyles";
 import { getAvatarEmoji } from "../../../lib/avatars";
 
 function PersonRow({ title, user, fallbackId, subLine }) {
+  const primaryText =
+    user?.nickname || user?.username || fallbackId || "@anonymous";
+  const secondaryLine =
+    user?.username ? `@${String(user.username).replace(/^@+/, "")}` : subLine;
+
   return (
     <View style={styles.personRow}>
       <View style={styles.avatarCircle}>
-        <Text style={styles.avatarEmoji}>
-          {getAvatarEmoji(user?.avatar || "default")}
-        </Text>
+        {user?.avatarUrl ? (
+          <Image source={{ uri: user.avatarUrl }} style={styles.avatarImage} />
+        ) : (
+          <Text style={styles.avatarEmoji}>
+            {getAvatarEmoji(user?.avatar || "default")}
+          </Text>
+        )}
       </View>
       <View style={styles.personText}>
         <Text style={styles.personTitle}>{title}</Text>
-        <Text style={styles.personValue}>{user?.nickname || fallbackId}</Text>
-        {subLine ? <Text style={styles.personSubValue}>{subLine}</Text> : null}
+        <Text style={styles.personValue}>{primaryText}</Text>
+        {secondaryLine ? <Text style={styles.personSubValue}>{secondaryLine}</Text> : null}
+        {user?.email ? <Text style={styles.personSubValue}>{user.email}</Text> : null}
+        {subLine && secondaryLine !== subLine ? (
+          <Text style={styles.personSubValue}>{subLine}</Text>
+        ) : null}
       </View>
     </View>
   );
@@ -66,6 +79,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginRight: theme.spacing.md,
+  },
+  avatarImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
   },
   avatarEmoji: {
     fontSize: 20,

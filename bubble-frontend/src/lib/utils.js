@@ -159,6 +159,18 @@ export const formatDate = (date, format = "short") => {
   return d.toLocaleDateString("en-US", options);
 };
 
+export const formatJoinedDate = (date) => {
+  if (!date) return "";
+
+  const joined = new Date(date);
+  if (Number.isNaN(joined.getTime())) return "";
+
+  return joined.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+  });
+};
+
 export const getRelativeTime = (date) => {
   const now = new Date();
   const diffMs = now - new Date(date);

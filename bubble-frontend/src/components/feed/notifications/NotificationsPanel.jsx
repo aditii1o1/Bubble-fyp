@@ -10,9 +10,12 @@ import { styles } from "./NotificationsPanel.styles";
 
 function getNotificationText(notif) {
   if (notif.text) return notif.text;
-  if (notif.type === "reaction") return `${notif.user} reacted to your bubble`;
-  if (notif.type === "comment") return `${notif.user} commented on your bubble`;
-  return `${notif.user} reposted your bubble`;
+  const actor = notif.fromNickname || "Someone";
+  if (notif.type === "reaction") return `${actor} reacted to your bubble`;
+  if (notif.type === "comment") return `${actor} commented on your bubble`;
+  if (notif.type === "repost") return `${actor} reposted your bubble`;
+  if (notif.type === "broadcast") return "New announcement from Bubble";
+  return "You have a new notification";
 }
 
 function getEmojiBackground(type) {
@@ -20,6 +23,7 @@ function getEmojiBackground(type) {
     reaction: theme.colors.primaryPink + "15",
     comment: theme.colors.primaryPink + "10",
     repost: theme.colors.primaryPink + "05",
+    broadcast: theme.colors.accent,
   };
   return colors[type] || theme.colors.primaryPink + "10";
 }

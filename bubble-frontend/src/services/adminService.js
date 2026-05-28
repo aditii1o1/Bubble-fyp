@@ -6,6 +6,36 @@ function normalizeReport(id, data) {
   const resolvedAt =
     data?.resolvedAt?.toDate?.()?.toISOString?.() || data?.resolvedAt || null;
 
+  const reporter = data?.reporter && typeof data.reporter === "object"
+    ? {
+        id: data.reporter.id || data.reporter.uid || data.reporter._id || data.reporterId || "",
+        email: data.reporter.email || data.reporterEmail || "",
+        nickname: data.reporter.nickname || data.reporterNickname || "@anonymous",
+        username: data.reporter.username || "",
+        avatar: data.reporter.avatar || "cat",
+        avatarUrl: data.reporter.avatarUrl || null,
+        banned: !!data.reporter.banned,
+        role: data.reporter.role || "user",
+      }
+    : null;
+  const reportedUser = data?.reportedUser && typeof data.reportedUser === "object"
+    ? {
+        id:
+          data.reportedUser.id ||
+          data.reportedUser.uid ||
+          data.reportedUser._id ||
+          data.reportedUserId ||
+          "",
+        email: data.reportedUser.email || "",
+        nickname: data.reportedUser.nickname || data.reportedUserNickname || "@anonymous",
+        username: data.reportedUser.username || "",
+        avatar: data.reportedUser.avatar || "cat",
+        avatarUrl: data.reportedUser.avatarUrl || null,
+        banned: !!data.reportedUser.banned,
+        role: data.reportedUser.role || "user",
+      }
+    : null;
+
   return {
     id,
     status: data.status || "open",
@@ -20,6 +50,8 @@ function normalizeReport(id, data) {
     reporterNickname: data.reporterNickname || "",
     reportedUserId: data.reportedUserId || "",
     reportedUserNickname: data.reportedUserNickname || "",
+    reporter,
+    reportedUser,
     createdAt: createdAt || new Date().toISOString(),
     resolvedAt,
     actionTaken: data.actionTaken || null,
@@ -79,6 +111,16 @@ export const adminService = {
     return true;
   },
 
+  deleteReportedPost: async ({ postId }) => {
+    await api.delete(`/admin/posts/${String(postId || "")}`);
+    return true;
+  },
+
+  deleteReportedComment: async ({ commentId }) => {
+    await api.delete(`/admin/comments/${String(commentId || "")}`);
+    return true;
+  },
+
   banUser: async ({ userId }) => {
     await api.patch(`/admin/users/${String(userId || "")}/ban`);
     return true;
@@ -96,7 +138,15 @@ export const adminService = {
 
   getDashboardCounts: async () => {
     const res = await api.get("/admin/dashboard");
-    return res.data;
+    return {
+      openReports: Number(res.data?.openReports || 0),
+      resolvedReports: Number(res.data?.resolvedReports || 0),
+      users: Number(res.data?.users || 0),
+      bannedUsers: Number(res.data?.bannedUsers || 0),
+      posts: Number(res.data?.posts || 0),
+      comments: Number(res.data?.comments || 0),
+      activity: Array.isArray(res.data?.activity) ? res.data.activity : [],
+    };
   },
 
   getDonations: async ({ pageSize = 100, status, q } = {}) => {

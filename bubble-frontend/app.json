@@ -39,6 +39,8 @@
         }
       ],
       "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_MEDIA_IMAGES",
         "android.permission.RECORD_AUDIO"
       ],
       "package": "com.aditibubble.bubble"
@@ -49,9 +51,16 @@
     "plugins": [
       "expo-router",
       [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Bubble to use your camera so you can scan your ID for age verification.",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
         "expo-image-picker",
         {
-          "photosPermission": "Allow Bubble to access your photos so you can set a profile picture."
+          "photosPermission": "Allow Bubble to access your photos so you can choose an ID image for age verification or set a profile picture."
         }
       ]
     ],

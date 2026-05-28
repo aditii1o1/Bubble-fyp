@@ -17,21 +17,31 @@ export default function CommentCard({
   const lastTapRef = useRef(0);
   const singleTapTimerRef = useRef(null);
   const heartAnim = useRef(new Animated.Value(0)).current;
+  const burstAnimRef = useRef(null);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
     return () => {
+      isMountedRef.current = false;
       if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
+      if (burstAnimRef.current) burstAnimRef.current.stop();
+      heartAnim.stopAnimation();
     };
-  }, []);
+  }, [heartAnim]);
 
   const showHeartBurst = () => {
+    if (burstAnimRef.current) burstAnimRef.current.stop();
     heartAnim.setValue(0);
-    Animated.timing(heartAnim, {
+    burstAnimRef.current = Animated.timing(heartAnim, {
       toValue: 1,
       duration: 360,
       useNativeDriver: true,
-    }).start(() => {
-      heartAnim.setValue(0);
+    });
+    burstAnimRef.current.start(({ finished }) => {
+      if (finished && isMountedRef.current) {
+        heartAnim.setValue(0);
+      }
+      burstAnimRef.current = null;
     });
   };
 

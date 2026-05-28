@@ -22,12 +22,24 @@ function getLocalApiBaseUrl() {
   return "http://localhost:4000/api";
 }
 
-export function getApiBaseUrl() {
-  const fromEnv = process.env.EXPO_PUBLIC_API_URL;
-  if (fromEnv) return String(fromEnv).trim();
+function shouldUseLocalApiInDev() {
+  const raw = String(process.env.EXPO_PUBLIC_USE_LOCAL_API || "")
+    .trim()
+    .toLowerCase();
+  return ["1", "true", "yes", "on"].includes(raw);
+}
 
+export function getApiBaseUrl() {
+  const fromEnv = String(process.env.EXPO_PUBLIC_API_URL || "").trim();
   const extra = Constants?.expoConfig?.extra || {};
-  if (extra.apiUrl) return String(extra.apiUrl).trim();
+  const fromExtra = String(extra.apiUrl || "").trim();
+
+  if (__DEV__ && shouldUseLocalApiInDev()) {
+    return getLocalApiBaseUrl();
+  }
+
+  if (fromEnv) return fromEnv;
+  if (fromExtra) return fromExtra;
 
   return getLocalApiBaseUrl();
 }

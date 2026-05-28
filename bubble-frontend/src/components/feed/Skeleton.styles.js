@@ -16,6 +16,23 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     marginBottom: theme.spacing.lg,
   },
+  labelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: theme.spacing.md,
+  },
+  labelDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: theme.colors.primaryPink,
+    marginRight: theme.spacing.sm,
+  },
+  labelText: {
+    fontSize: theme.fontSize.xs,
+    fontFamily: theme.fontFamily.bold,
+    color: theme.colors.primaryPink,
+  },
   avatar: {
     width: 40,
     height: 40,
@@ -64,10 +81,11 @@ export const styles = StyleSheet.create({
   shimmer: {
     position: "absolute",
     top: 0,
-    left: 0,
-    right: 0,
     bottom: 0,
-    backgroundColor: "rgba(255, 255, 255, 0.3)",
+    width: "55%",
+  },
+  shimmerGradient: {
+    flex: 1,
   },
 });
 

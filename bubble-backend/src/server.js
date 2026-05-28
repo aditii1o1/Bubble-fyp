@@ -10,6 +10,7 @@ import { notFound } from "./middleware/notFound.js";
 
 import authRoutes from "./routes/authRoutes.js";
 import meRoutes from "./routes/meRoutes.js";
+import usersRoutes from "./routes/usersRoutes.js";
 import postRoutes from "./routes/postRoutes.js";
 import repostRoutes from "./routes/repostRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
@@ -43,6 +44,7 @@ async function main() {
 
   app.use("/api/auth", authRoutes);
   app.use("/api/me", meRoutes);
+  app.use("/api/users", usersRoutes);
   app.use("/api/posts", postRoutes);
   app.use("/api/reposts", repostRoutes);
   app.use("/api/notifications", notificationRoutes);

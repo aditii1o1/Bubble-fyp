@@ -10,8 +10,11 @@ web-build/
 expo-env.d.ts
 
 # Native
+.android-home/
+.dist/
 .kotlin/
 .gradle/
+.gradle-cache/
 .gradle-local/
 .gradle-local-*/
 *.orig.*
@@ -25,6 +28,7 @@ expo-env.d.ts
 .metro-health-check*
 
 # debug
+eas-log-*.txt
 npm-debug.*
 yarn-debug.*
 yarn-error.*
@@ -56,3 +60,8 @@ GoogleService-Info.plist
 # Local Codex session data
 codex_sessions/
 .codex/
+
+# Local build repros and accidental dump artifacts
+bubble-frontend-eas-repro/
+bubble-frontend/expo-router
+bubble-frontend/com.facebook.react.modules.core.ReactChoreographer*

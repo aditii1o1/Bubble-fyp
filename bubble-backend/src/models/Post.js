@@ -23,4 +23,8 @@ const PostSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+PostSchema.index({ expiresAt: 1, createdAt: -1 });
+PostSchema.index({ userId: 1, createdAt: -1 });
+PostSchema.index({ userId: 1, expiresAt: 1, createdAt: -1 });
+
 export const Post = mongoose.model("Post", PostSchema);

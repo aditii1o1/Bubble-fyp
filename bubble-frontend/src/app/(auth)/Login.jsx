@@ -15,6 +15,11 @@ import { getAuthErrorMessage } from "../../utils/authError";
 import { useToast } from "../../context/ToastContext";
 import { getAuthenticatedHref } from "../../utils/authRedirect";
 
+function isEmailVerificationError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return message.includes("email not verified") || message.includes("verify your email");
+}
+
 export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -67,6 +72,12 @@ export default function LoginScreen() {
       );
     } catch (error) {
       showToast(getAuthErrorMessage(error), { type: "error" });
+      if (isEmailVerificationError(error)) {
+        router.replace({
+          pathname: "/(auth)/VerifyEmailSent",
+          params: { email: String(data.email || "").trim().toLowerCase() },
+        });
+      }
     } finally {
       submitLockRef.current = false;
       setIsLoading(false);
@@ -128,6 +139,7 @@ export default function LoginScreen() {
           title={isLoading || isSubmitting ? "Signing In..." : "Sign In"}
           variant="primary"
           onPress={handleSubmit(onSubmit)}
+          loading={isLoading || isSubmitting}
           disabled={isLoading || isSubmitting}
         />
       </View>

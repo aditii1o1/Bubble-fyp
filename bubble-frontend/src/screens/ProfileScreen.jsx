@@ -26,6 +26,7 @@ import { postService } from "../services/postService";
 import { authService } from "../services/authService";
 import { useToast } from "../context/ToastContext";
 import { pickImageFromLibrary } from "../utils/imagePicker";
+import { formatJoinedDate } from "../lib/utils";
 
 export default function ProfileScreen() {
   const { state, dispatch } = useAppContext();
@@ -41,10 +42,11 @@ export default function ProfileScreen() {
   const uid = String(state.user?.uid || "").trim();
   const nickname =
     state.profile.nickname || "@anonymous";
+  const username = state.profile.username || "";
   const avatar = state.profile.avatar || "cat";
   const avatarUrl = state.profile.avatarUrl || null;
   const bio = state.profile.bio;
-  const joinedDate = state.profile.joinedDate;
+  const joinedDate = formatJoinedDate(state.profile.createdAt);
 
   const userBubbles = useMemo(() => {
     if (!uid) return [];
@@ -159,6 +161,7 @@ export default function ProfileScreen() {
           bio: me.bio || "",
           avatar: me.avatar || "cat",
           avatarUrl: me.avatarUrl || null,
+          createdAt: me.createdAt || state.profile.createdAt || null,
         };
 
         dispatch(appActions.setProfile(updates));
@@ -270,6 +273,8 @@ export default function ProfileScreen() {
           avatar={avatar}
           avatarUrl={avatarUrl}
           nickname={nickname}
+          username={username}
+          email={email}
           bio={bio}
           joinedDate={joinedDate}
           stats={stats}
@@ -303,6 +308,7 @@ export default function ProfileScreen() {
         </View>
 
         <ProfileSettingsSection
+          onPrivacyPress={() => router.push("/privacy")}
           onReportProblem={handleReport}
           onLogout={handleLogout}
         />

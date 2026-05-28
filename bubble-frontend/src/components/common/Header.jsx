@@ -2,7 +2,6 @@
 import React, { useState } from "react";
 import { View, Text, TouchableOpacity, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { theme } from "../../constants/themes";
 import NotificationsPanel from "../feed/NotificationsPanel";
 import { useAppContext } from "../../context/AppContext";
@@ -20,7 +19,7 @@ export default function Header({ onFilterClick }) {
   };
 
   return (
-    <LinearGradient colors={theme.gradient} style={styles.header}>
+    <View style={styles.header}>
       <View style={styles.statusBarSpacing} />
 
       {/* Logo */}
@@ -69,6 +68,6 @@ export default function Header({ onFilterClick }) {
         onClose={() => setShowNotifications(false)}
         unreadCount={unreadCount}
       />
-    </LinearGradient>
+    </View>
   );
 }

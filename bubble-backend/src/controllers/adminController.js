@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { User } from "../models/User.js";
 import { Settings } from "../models/Settings.js";
 import { Broadcast } from "../models/Broadcast.js";
@@ -10,7 +11,114 @@ import { CommentReaction } from "../models/CommentReaction.js";
 import { Donation } from "../models/Donation.js";
 import { serializeDonation } from "../utils/donations.js";
 
-function formatReport(reportDoc) {
+function startOfUtcDay(date) {
+  const value = new Date(date);
+  value.setUTCHours(0, 0, 0, 0);
+  return value;
+}
+
+function addUtcDays(date, days) {
+  const value = new Date(date);
+  value.setUTCDate(value.getUTCDate() + days);
+  return value;
+}
+
+function formatDayKey(date) {
+  return startOfUtcDay(date).toISOString().slice(0, 10);
+}
+
+async function getDailyCounts(Model, startDate) {
+  const rows = await Model.aggregate([
+    { $match: { createdAt: { $gte: startDate } } },
+    {
+      $group: {
+        _id: {
+          $dateToString: {
+            format: "%Y-%m-%d",
+            date: "$createdAt",
+            timezone: "UTC",
+          },
+        },
+        count: { $sum: 1 },
+      },
+    },
+  ]);
+
+  return new Map(rows.map((row) => [String(row?._id || ""), Number(row?.count || 0)]));
+}
+
+async function getDashboardActivity(days = 7) {
+  const today = startOfUtcDay(new Date());
+  const startDate = addUtcDays(today, -(days - 1));
+
+  const [userCounts, postCounts, commentCounts, reportCounts] = await Promise.all([
+    getDailyCounts(User, startDate),
+    getDailyCounts(Post, startDate),
+    getDailyCounts(Comment, startDate),
+    getDailyCounts(Report, startDate),
+  ]);
+
+  const items = [];
+  for (let index = 0; index < days; index += 1) {
+    const date = addUtcDays(startDate, index);
+    const key = formatDayKey(date);
+    items.push({
+      date: key,
+      label: date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        timeZone: "UTC",
+      }),
+      users: userCounts.get(key) || 0,
+      posts: postCounts.get(key) || 0,
+      comments: commentCounts.get(key) || 0,
+      reports: reportCounts.get(key) || 0,
+    });
+  }
+
+  return items;
+}
+
+function formatAdminUser(userDoc, { includeEmail = true } = {}) {
+  if (!userDoc) return null;
+
+  return {
+    id: String(userDoc._id),
+    ...(includeEmail ? { email: userDoc.email || "" } : {}),
+    role: userDoc.role || "user",
+    banned: Boolean(userDoc.banned),
+    onboarded: Boolean(userDoc.onboarded),
+    nickname: userDoc.nickname || "@anonymous",
+    username: userDoc.username || "",
+    bio: userDoc.bio || "",
+    avatar: userDoc.avatar || "cat",
+    avatarUrl: userDoc.avatarUrl || null,
+    createdAt: userDoc.createdAt ? new Date(userDoc.createdAt).toISOString() : null,
+  };
+}
+
+function fallbackAdminUser({
+  id = "",
+  email = "",
+  nickname = "@anonymous",
+} = {}) {
+  if (!id && !email && !nickname) return null;
+  return {
+    id,
+    email,
+    role: "user",
+    banned: false,
+    onboarded: false,
+    nickname: nickname || "@anonymous",
+    username: "",
+    bio: "",
+    avatar: "cat",
+    avatarUrl: null,
+    createdAt: null,
+  };
+}
+
+function formatReport(reportDoc, { reporterUser = null, reportedUser = null } = {}) {
   return {
     id: String(reportDoc._id),
     status: reportDoc.status || "open",
@@ -25,6 +133,19 @@ function formatReport(reportDoc) {
     reporterNickname: reportDoc.reporterNickname || "",
     reportedUserId: reportDoc.reportedUserId || "",
     reportedUserNickname: reportDoc.reportedUserNickname || "",
+    reporter:
+      formatAdminUser(reporterUser) ||
+      fallbackAdminUser({
+        id: reportDoc.reporterId || "",
+        email: reportDoc.reporterEmail || "",
+        nickname: reportDoc.reporterNickname || "",
+      }),
+    reportedUser:
+      formatAdminUser(reportedUser) ||
+      fallbackAdminUser({
+        id: reportDoc.reportedUserId || "",
+        nickname: reportDoc.reportedUserNickname || "",
+      }),
     createdAt: reportDoc.createdAt ? new Date(reportDoc.createdAt).toISOString() : new Date().toISOString(),
     resolvedAt: reportDoc.resolvedAt ? new Date(reportDoc.resolvedAt).toISOString() : null,
     actionTaken: reportDoc.actionTaken || null,
@@ -42,15 +163,66 @@ function formatBroadcast(broadcastDoc) {
   };
 }
 
+async function attachUsersToReports(reportDocs) {
+  const docs = Array.isArray(reportDocs) ? reportDocs : [];
+  if (!docs.length) return [];
+
+  const userIds = Array.from(
+    new Set(
+      docs
+        .flatMap((doc) => [doc?.reporterId, doc?.reportedUserId])
+        .filter((id) => mongoose.isValidObjectId(id))
+        .map((id) => String(id))
+    )
+  );
+
+  const userDocs = userIds.length
+    ? await User.find({ _id: { $in: userIds } })
+        .select({
+          email: 1,
+          role: 1,
+          banned: 1,
+          onboarded: 1,
+          nickname: 1,
+          username: 1,
+          avatar: 1,
+          avatarUrl: 1,
+          createdAt: 1,
+        })
+        .lean()
+    : [];
+
+  const usersById = new Map(userDocs.map((userDoc) => [String(userDoc._id), userDoc]));
+
+  return docs.map((doc) =>
+    formatReport(doc, {
+      reporterUser: usersById.get(String(doc?.reporterId || "")) || null,
+      reportedUser: usersById.get(String(doc?.reportedUserId || "")) || null,
+    })
+  );
+}
+
 const adminController = {
   getDashboardCounts: async (req, res, next) => {
     try {
-      const [openReports, users, posts] = await Promise.all([
+      const [openReports, resolvedReports, users, bannedUsers, posts, comments, activity] = await Promise.all([
         Report.countDocuments({ status: "open" }),
+        Report.countDocuments({ status: "resolved" }),
         User.countDocuments({}),
-        Post.countDocuments({})
+        User.countDocuments({ banned: true }),
+        Post.countDocuments({}),
+        Comment.countDocuments({}),
+        getDashboardActivity(7),
       ]);
-      return res.json({ openReports, users, posts, comments: 0 });
+      return res.json({
+        openReports,
+        resolvedReports,
+        users,
+        bannedUsers,
+        posts,
+        comments,
+        activity,
+      });
     } catch (e) {
       return next(e);
     }
@@ -115,9 +287,11 @@ const adminController = {
         onboarded: Boolean(userDoc.onboarded),
         nickname: userDoc.nickname || "@anonymous",
         username: userDoc.username || "",
+        bio: userDoc.bio || "",
         avatar: userDoc.avatar || "cat",
         avatarUrl: userDoc.avatarUrl || null,
         createdAt: userDoc.createdAt,
+        canBan: String(userDoc._id) !== String(req.user?._id || ""),
       }));
       return res.json({ users });
     } catch (e) {
@@ -127,8 +301,22 @@ const adminController = {
 
   banUser: async (req, res, next) => {
     try {
-      await User.updateOne({ _id: req.params.id }, { $set: { banned: true } });
-      return res.json({ ok: true });
+      const targetId = String(req.params.id || "");
+      if (!mongoose.isValidObjectId(targetId)) {
+        return res.status(400).json({ message: "Invalid user id" });
+      }
+      if (String(req.user?._id || "") === targetId) {
+        return res.status(400).json({ message: "You can't ban your own admin account." });
+      }
+
+      const updatedUser = await User.findByIdAndUpdate(
+        targetId,
+        { $set: { banned: true } },
+        { new: true }
+      ).lean();
+      if (!updatedUser) return res.status(404).json({ message: "User not found" });
+
+      return res.json({ ok: true, user: formatAdminUser(updatedUser) });
     } catch (e) {
       return next(e);
     }
@@ -136,8 +324,22 @@ const adminController = {
 
   unbanUser: async (req, res, next) => {
     try {
-      await User.updateOne({ _id: req.params.id }, { $set: { banned: false } });
-      return res.json({ ok: true });
+      const targetId = String(req.params.id || "");
+      if (!mongoose.isValidObjectId(targetId)) {
+        return res.status(400).json({ message: "Invalid user id" });
+      }
+      if (String(req.user?._id || "") === targetId) {
+        return res.status(400).json({ message: "Your admin account can't be changed here." });
+      }
+
+      const updatedUser = await User.findByIdAndUpdate(
+        targetId,
+        { $set: { banned: false } },
+        { new: true }
+      ).lean();
+      if (!updatedUser) return res.status(404).json({ message: "User not found" });
+
+      return res.json({ ok: true, user: formatAdminUser(updatedUser) });
     } catch (e) {
       return next(e);
     }
@@ -230,6 +432,23 @@ const adminController = {
   createReport: async (req, res, next) => {
     try {
       const body = req.body || {};
+      const reportedUserId = typeof body.reportedUserId === "string" ? body.reportedUserId : "";
+      const reportedUserDoc =
+        mongoose.isValidObjectId(reportedUserId)
+          ? await User.findById(reportedUserId)
+              .select({
+                email: 1,
+                role: 1,
+                banned: 1,
+                onboarded: 1,
+                nickname: 1,
+                username: 1,
+                avatar: 1,
+                avatarUrl: 1,
+                createdAt: 1,
+              })
+              .lean()
+          : null;
       const reportPayload = {
         status: "open",
         targetType: typeof body.targetType === "string" ? body.targetType : "post",
@@ -246,12 +465,17 @@ const adminController = {
           typeof body.reporterNickname === "string"
             ? body.reporterNickname
             : req.user.nickname || "",
-        reportedUserId: typeof body.reportedUserId === "string" ? body.reportedUserId : "",
+        reportedUserId,
         reportedUserNickname:
           typeof body.reportedUserNickname === "string" ? body.reportedUserNickname : ""
       };
       const createdReport = await Report.create(reportPayload);
-      return res.status(201).json({ report: formatReport(createdReport.toObject()) });
+      return res.status(201).json({
+        report: formatReport(createdReport.toObject(), {
+          reporterUser: req.user,
+          reportedUser: reportedUserDoc,
+        }),
+      });
     } catch (e) {
       return next(e);
     }
@@ -268,7 +492,7 @@ const adminController = {
         .sort({ createdAt: -1 })
         .limit(pageSize)
         .lean();
-      return res.json({ reports: reportDocs.map((doc) => formatReport(doc)) });
+      return res.json({ reports: await attachUsersToReports(reportDocs) });
     } catch (e) {
       return next(e);
     }
@@ -278,7 +502,8 @@ const adminController = {
     try {
       const reportDoc = await Report.findById(req.params.id).lean();
       if (!reportDoc) return res.status(404).json({ message: "Report not found" });
-      return res.json({ report: formatReport(reportDoc) });
+      const [report] = await attachUsersToReports([reportDoc]);
+      return res.json({ report });
     } catch (e) {
       return next(e);
     }
@@ -286,12 +511,17 @@ const adminController = {
 
   resolveReport: async (req, res, next) => {
     try {
+      const reportId = String(req.params.id || "");
+      if (!mongoose.isValidObjectId(reportId)) {
+        return res.status(400).json({ message: "Invalid report id" });
+      }
       const actionTaken =
         typeof req.body?.actionTaken === "string" ? req.body.actionTaken : "resolved";
-      await Report.updateOne(
-        { _id: req.params.id },
+      const updatedReport = await Report.findByIdAndUpdate(
+        reportId,
         { $set: { status: "resolved", actionTaken, resolvedAt: new Date() } }
-      );
+      ).lean();
+      if (!updatedReport) return res.status(404).json({ message: "Report not found" });
       return res.json({ ok: true });
     } catch (e) {
       return next(e);
@@ -300,12 +530,17 @@ const adminController = {
 
   markReportDeleted: async (req, res, next) => {
     try {
+      const reportId = String(req.params.id || "");
+      if (!mongoose.isValidObjectId(reportId)) {
+        return res.status(400).json({ message: "Invalid report id" });
+      }
       const actionTaken =
         typeof req.body?.actionTaken === "string" ? req.body.actionTaken : "deleted";
-      await Report.updateOne(
-        { _id: req.params.id },
+      const updatedReport = await Report.findByIdAndUpdate(
+        reportId,
         { $set: { status: "deleted", actionTaken, resolvedAt: new Date() } }
-      );
+      ).lean();
+      if (!updatedReport) return res.status(404).json({ message: "Report not found" });
       return res.json({ ok: true });
     } catch (e) {
       return next(e);

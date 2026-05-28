@@ -8,7 +8,6 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
 import { theme } from "../../constants/themes";
 import DismissKeyboard from "./DismissKeyboard";
 
@@ -21,7 +20,9 @@ const AuthLayout = memo(({ children, scrollable = false }) => {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
       >
-        <LinearGradient colors={theme.gradient} style={styles.gradient}>
+        <View style={styles.background}>
+          <View pointerEvents="none" style={styles.topWash} />
+          <View pointerEvents="none" style={styles.bottomWash} />
           {scrollable ? (
             <ScrollView
               style={styles.scrollView}
@@ -41,7 +42,7 @@ const AuthLayout = memo(({ children, scrollable = false }) => {
               {children}
             </DismissKeyboard>
           )}
-        </LinearGradient>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -53,11 +54,34 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  gradient: {
+  background: {
     flex: 1,
+    backgroundColor: theme.colors.background,
+    overflow: "hidden",
+  },
+  topWash: {
+    position: "absolute",
+    top: -90,
+    right: -90,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: "#FFE8ED",
+    opacity: 0.7,
+  },
+  bottomWash: {
+    position: "absolute",
+    bottom: -120,
+    left: -110,
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    backgroundColor: "#FFF1E7",
+    opacity: 0.9,
   },
   scrollView: {
     flex: 1,
+    zIndex: 1,
   },
   scrollContent: {
     flexGrow: 1,
@@ -67,6 +91,7 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
     justifyContent: "center",
     alignItems: "center",
+    zIndex: 1,
   },
 });
 

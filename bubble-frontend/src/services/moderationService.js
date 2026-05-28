@@ -4,6 +4,9 @@ import { api } from "./apiClient";
 const CACHE_KEY = "@blocked_words";
 const CACHE_TS_KEY = "@blocked_words_ts";
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+let memoryWords = null;
+let memoryTs = 0;
+let refreshPromise = null;
 
 function normalizeWords(words) {
   const arr = Array.isArray(words) ? words : [];
@@ -41,41 +44,104 @@ function findBlockedWord(text, words) {
   return null;
 }
 
-export const moderationService = {
-  getBlockedWords: async () => {
-    // Firestore first
-    try {
-      const res = await api.get("/moderation/blocked-words", { timeout: 3000 });
-      const words = normalizeWords(res.data?.blockedWords || []);
+function isFresh(ts) {
+  return Number.isFinite(ts) && ts > 0 && Date.now() - ts < CACHE_TTL_MS;
+}
 
+function setMemoryCache(words, ts = Date.now()) {
+  memoryWords = normalizeWords(words);
+  memoryTs = ts;
+  return memoryWords;
+}
+
+async function persistWords(words) {
+  const next = setMemoryCache(words, Date.now());
+  try {
+    await Promise.all([
+      AsyncStorage.setItem(CACHE_KEY, JSON.stringify(next)),
+      AsyncStorage.setItem(CACHE_TS_KEY, String(memoryTs)),
+    ]);
+  } catch {
+    // ignore cache write failures
+  }
+  return next;
+}
+
+async function readStoredWords() {
+  try {
+    const [cached, ts] = await Promise.all([
+      AsyncStorage.getItem(CACHE_KEY),
+      AsyncStorage.getItem(CACHE_TS_KEY),
+    ]);
+    if (!cached) return { words: null, ts: 0 };
+    const words = normalizeWords(JSON.parse(cached));
+    const tsNum = Number(ts || 0);
+    setMemoryCache(words, tsNum);
+    return { words, ts: tsNum };
+  } catch {
+    return { words: null, ts: 0 };
+  }
+}
+
+async function fetchRemoteWords() {
+  const res = await api.get("/moderation/blocked-words", { timeout: 3000 });
+  const words = normalizeWords(res.data?.blockedWords || []);
+  return persistWords(words);
+}
+
+function refreshBlockedWords() {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
       try {
-        await Promise.all([
-          AsyncStorage.setItem(CACHE_KEY, JSON.stringify(words)),
-          AsyncStorage.setItem(CACHE_TS_KEY, String(Date.now())),
-        ]);
-      } catch {
-        // ignore
+        return await fetchRemoteWords();
+      } finally {
+        refreshPromise = null;
       }
+    })();
+  }
+  return refreshPromise;
+}
 
-      return words;
-    } catch {
-      // cache fallback
+export const moderationService = {
+  getBlockedWords: async ({ preferFresh = false } = {}) => {
+    if (memoryWords !== null) {
+      const words = normalizeWords(memoryWords);
+      if (isFresh(memoryTs) || !preferFresh) {
+        if (!isFresh(memoryTs)) {
+          void refreshBlockedWords().catch(() => {
+            // ignore background refresh failures
+          });
+        }
+        return words;
+      }
+    }
+
+    const stored = await readStoredWords();
+    if (stored.words !== null) {
+      if (isFresh(stored.ts) || !preferFresh) {
+        if (!isFresh(stored.ts)) {
+          void refreshBlockedWords().catch(() => {
+            // ignore background refresh failures
+          });
+        }
+        return stored.words;
+      }
     }
 
     try {
-      const [cached, ts] = await Promise.all([
-        AsyncStorage.getItem(CACHE_KEY),
-        AsyncStorage.getItem(CACHE_TS_KEY),
-      ]);
-      const tsNum = Number(ts || 0);
-      if (cached && tsNum && Date.now() - tsNum < CACHE_TTL_MS) {
-        return normalizeWords(JSON.parse(cached));
-      }
-      if (cached) return normalizeWords(JSON.parse(cached));
+      return await refreshBlockedWords();
     } catch {
-      // ignore
+      if (memoryWords !== null) return normalizeWords(memoryWords);
     }
     return [];
+  },
+
+  prefetchBlockedWords: async () => {
+    try {
+      await moderationService.getBlockedWords({ preferFresh: true });
+    } catch {
+      // ignore warmup failures
+    }
   },
 
   checkText: async (text) => {
